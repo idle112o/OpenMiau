@@ -32,7 +32,7 @@ public class BedwarUtils extends Module {
     public final BooleanProperty diamondUpgrades = new BooleanProperty("diamond-upgrades", true);
     public final BooleanProperty itemTracker = new BooleanProperty("item-tracker", true);
 
-    private static final Pattern ITEM_TRACKER_PATTERN = Pattern.compile("^(.+?)\\s+has\\s+(.+)$", Pattern.CASE_INSENSITIVE);
+    private static final Pattern ITEM_TRACKER_PATTERN = Pattern.compile("(.+?)\\s+has\\s+(?:an?\\s+)?(.+?)(?:[.!])?$", Pattern.CASE_INSENSITIVE);
     private final Set<String> trackedItemMessages = new HashSet<>();
 
     private boolean trap;
@@ -84,6 +84,10 @@ public class BedwarUtils extends Module {
             return;
         }
         String lower = text.toLowerCase();
+        if (this.isNewGameMessage(lower)) {
+            this.reset();
+            return;
+        }
         if (this.diamondUpgrades.getValue()) {
             if (lower.contains("trap") || lower.contains("it's a trap") || lower.contains("alarm trap")
                     || lower.contains("miner fatigue")) {
@@ -100,6 +104,14 @@ public class BedwarUtils extends Module {
         this.scanItemTracker(text, formattedText);
     }
 
+    private boolean isNewGameMessage(String lower) {
+        return lower.contains("protect your bed")
+                || lower.contains("you are playing on")
+                || lower.contains("the game starts in 1 second")
+                || lower.contains("the game has started")
+                || lower.contains("bed wars") && lower.contains("protect your bed");
+    }
+
     private void scanItemTracker(String text, String formattedText) {
         if (!this.itemTracker.getValue()) {
             return;
@@ -108,11 +120,11 @@ public class BedwarUtils extends Module {
         if (!matcher.find()) {
             return;
         }
-        String item = matcher.group(2).trim();
+        String item = this.normalizeItemName(matcher.group(2).trim());
         if (!this.isTrackedItem(item)) {
             return;
         }
-        String key = text.toLowerCase();
+        String key = (matcher.group(1).trim() + " has " + item).toLowerCase();
         if (!this.trackedItemMessages.add(key)) {
             return;
         }
@@ -130,7 +142,20 @@ public class BedwarUtils extends Module {
                 || lower.contains("bow")
                 || lower.contains("pickaxe")
                 || lower.contains("axe")
-                || lower.contains("shears");
+                || lower.contains("shears")
+                || lower.contains("fireball")
+                || lower.contains("ender pearl")
+                || lower.contains("invisibility")
+                || lower.contains("jump")
+                || lower.contains("speed");
+    }
+
+    private String normalizeItemName(String item) {
+        String normalized = item.replaceAll("(?i)^an?\\s+", "").trim();
+        if (normalized.endsWith(".")) {
+            normalized = normalized.substring(0, normalized.length() - 1).trim();
+        }
+        return normalized;
     }
 
     private String extractFormattedPlayer(String formattedText, String fallback) {
@@ -138,7 +163,14 @@ public class BedwarUtils extends Module {
             return fallback;
         }
         String marker = " has ";
-        int index = formattedText.toLowerCase().indexOf(marker);
+        String lowerFormatted = formattedText.toLowerCase();
+        int index = lowerFormatted.indexOf(marker);
+        if (index < 0) {
+            index = lowerFormatted.indexOf(" has an ");
+        }
+        if (index < 0) {
+            index = lowerFormatted.indexOf(" has a ");
+        }
         return index > 0 ? formattedText.substring(0, index) : fallback;
     }
 

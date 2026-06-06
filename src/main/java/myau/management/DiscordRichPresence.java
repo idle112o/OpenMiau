@@ -31,7 +31,6 @@ public class DiscordRichPresence {
     private boolean running;
     private long startTimestamp;
     private long lastUpdate;
-    private long lastConfigFetch;
     private RpcConfig config = new RpcConfig();
 
     public boolean isRunning() {
@@ -42,7 +41,7 @@ public class DiscordRichPresence {
         if (this.running || rpc == null) {
             return;
         }
-        this.refreshConfig(rpc, true);
+        this.refreshConfig(rpc);
         String clientId = this.config.clientId.trim();
         if (clientId.isEmpty() || clientId.equals("0") || !this.config.enabled) {
             return;
@@ -80,11 +79,6 @@ public class DiscordRichPresence {
 
     private void update(RPC rpc, boolean force) {
         if (!this.running || this.pipe == null || rpc == null) {
-            return;
-        }
-        this.refreshConfig(rpc, false);
-        if (!this.config.enabled) {
-            this.stop();
             return;
         }
         long now = System.currentTimeMillis();
@@ -156,16 +150,11 @@ public class DiscordRichPresence {
         return builder.toString();
     }
 
-    private void refreshConfig(RPC rpc, boolean force) {
+    private void refreshConfig(RPC rpc) {
         if (rpc == null) {
             this.config = new RpcConfig();
             return;
         }
-        long now = System.currentTimeMillis();
-        if (!force && now - this.lastConfigFetch < 30000L) {
-            return;
-        }
-        this.lastConfigFetch = now;
         try {
             HttpURLConnection connection = (HttpURLConnection) new URL(rpc.getConfigUrl()).openConnection();
             connection.setRequestMethod("GET");
