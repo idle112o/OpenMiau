@@ -67,6 +67,8 @@ public class BedwarUtils extends Module {
     private int protLevel;
     private final LinkedHashMap<String, Long> invisAlertCooldowns = new LinkedHashMap<>();
 
+
+
     public BedwarUtils() {
         super("BedwarUtils", false, false);
         this.bedTrackerDelegate.setEnabled(true);
@@ -122,9 +124,6 @@ public class BedwarUtils extends Module {
 
     @EventTarget
     public void onRender2D(Render2DEvent event) {
-        if (this.bedTracker.getValue()) {
-            this.bedTrackerDelegate.onRender(event);
-        }
         if (!this.isEnabled() || !this.hud.getValue()) {
             return;
         }
@@ -141,6 +140,10 @@ public class BedwarUtils extends Module {
             rowY += 10.0F;
             this.drawLine("Prot", this.protLevel > 0, this.protLevel, x, rowY);
             rowY += 10.0F;
+        }
+        if (this.bedTracker.getValue()) {
+            rowY += this.diamondUpgrades.getValue() ? 20.0F : 0.0F;
+            this.drawBedLine(x, rowY);
         }
         GlStateManager.popMatrix();
     }
@@ -291,6 +294,18 @@ public class BedwarUtils extends Module {
         mc.fontRendererObj.drawString(text, x, y, color, this.hudShadow.getValue());
     }
 
+    private void drawBedLine(float x, float y) {
+        int white = 0xFFFFFFFF;
+        int green = 0xFF55FF55;
+        int red = 0xFFFF5555;
+        boolean shadow = this.hudShadow.getValue();
+        boolean hasBed = this.bedTrackerDelegate.isBed(this.bedTrackerDelegate.getBedPos());
+        String prefix = "Bed: ";
+        mc.fontRendererObj.drawString(prefix, x, y, white, shadow);
+        float valueX = x + mc.fontRendererObj.getStringWidth(prefix);
+        mc.fontRendererObj.drawString(hasBed ? "true" : "false", valueX, y, hasBed ? green : red, shadow);
+    }
+
 
 
 
@@ -321,11 +336,15 @@ public class BedwarUtils extends Module {
 
 
     private void drawTrapLine(float x, float y) {
+        int white = 0xFFFFFFFF;
         int green = 0xFF55FF55;
         int red = 0xFFFF5555;
         boolean shadow = this.hudShadow.getValue();
-        String text = this.trap ? "- Trap " + (this.trapType.isEmpty() ? "Unknown" : this.trapType) : "- Trap: false";
-        mc.fontRendererObj.drawString(text, x, y, this.trap ? green : red, shadow);
+        String prefix = "- Trap: ";
+        mc.fontRendererObj.drawString(prefix, x, y, white, shadow);
+        float valueX = x + mc.fontRendererObj.getStringWidth(prefix);
+        String value = this.trap ? (this.trapType.isEmpty() ? "Unknown" : this.trapType) : "false";
+        mc.fontRendererObj.drawString(value, valueX, y, this.trap ? green : red, shadow);
     }
 
     private String parseTrapType(String lower) {
@@ -400,7 +419,9 @@ public class BedwarUtils extends Module {
         return codes[best];
     }
 
-        private static class BedTracker extends Module {
+    
+    
+    private static class BedTracker extends Module {
         private static final Minecraft mc = Minecraft.getMinecraft();
         private static final long BED_SCAN_DELAY_MS = 3000L;
         private static final long BED_RESCAN_DELAY_MS = 5000L;
@@ -776,5 +797,5 @@ public class BedwarUtils extends Module {
             this.resetTracking();
         }
     }
-    
+
 }
