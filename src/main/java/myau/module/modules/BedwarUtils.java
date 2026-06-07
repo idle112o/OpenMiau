@@ -57,10 +57,29 @@ public class BedwarUtils extends Module {
     public final BooleanProperty bedTracker = new BooleanProperty("bedtracker", true);
     public final BooleanProperty invisAlert = new BooleanProperty("invis-alert", true);
 
+    public final BooleanProperty bedTrackerAlerts;
+    public final IntProperty bedTrackerAlertRange;
+    public final BooleanProperty bedTrackerAlertOnPearl;
+    public final ModeProperty bedTrackerAlertSound;
+    public final IntProperty bedTrackerAlertFrequency;
+    public final BooleanProperty bedTrackerAutoInc;
+    public final BooleanProperty bedTrackerMacro;
+    public final IntProperty bedTrackerMacroRange;
+    public final BooleanProperty bedTrackerMacroOnPearl;
+    public final TextProperty bedTrackerMacroText;
+    public final IntProperty bedTrackerMacroDelay;
+    public final BooleanProperty bedTrackerHud;
+    public final ModeProperty bedTrackerHudPosX;
+    public final ModeProperty bedTrackerHudPosY;
+    public final IntProperty bedTrackerHudOffX;
+    public final IntProperty bedTrackerHudOffY;
+    public final FloatProperty bedTrackerHudScale;
+    public final BooleanProperty bedTrackerHudShadow;
+
     private static final Pattern ITEM_TRACKER_PATTERN = Pattern.compile("(.+?)\\s+has\\s+(?:an?\\s+)?(.+?)(?:[.!])?$",
             Pattern.CASE_INSENSITIVE);
     private final Set<String> trackedItemMessages = new HashSet<>();
-    private final BedTracker bedTrackerDelegate = new BedTracker();
+    private final BedTracker bedTrackerDelegate;
 
     private boolean trap;
     private String trapType = "";
@@ -70,6 +89,25 @@ public class BedwarUtils extends Module {
 
     public BedwarUtils() {
         super("BedwarUtils", false, false);
+        this.bedTrackerDelegate = new BedTracker();
+        this.bedTrackerAlerts = this.bedTrackerDelegate.alerts;
+        this.bedTrackerAlertRange = this.bedTrackerDelegate.alertRange;
+        this.bedTrackerAlertOnPearl = this.bedTrackerDelegate.alertOnPearl;
+        this.bedTrackerAlertSound = this.bedTrackerDelegate.alertSound;
+        this.bedTrackerAlertFrequency = this.bedTrackerDelegate.alertFrequency;
+        this.bedTrackerAutoInc = this.bedTrackerDelegate.autoInc;
+        this.bedTrackerMacro = this.bedTrackerDelegate.marco;
+        this.bedTrackerMacroRange = this.bedTrackerDelegate.marcoRange;
+        this.bedTrackerMacroOnPearl = this.bedTrackerDelegate.marcoOnPreal;
+        this.bedTrackerMacroText = this.bedTrackerDelegate.marcoText;
+        this.bedTrackerMacroDelay = this.bedTrackerDelegate.marcoDelay;
+        this.bedTrackerHud = this.bedTrackerDelegate.hud;
+        this.bedTrackerHudPosX = this.bedTrackerDelegate.hudPosX;
+        this.bedTrackerHudPosY = this.bedTrackerDelegate.hudPosY;
+        this.bedTrackerHudOffX = this.bedTrackerDelegate.hudOffX;
+        this.bedTrackerHudOffY = this.bedTrackerDelegate.hudOffY;
+        this.bedTrackerHudScale = this.bedTrackerDelegate.hudScale;
+        this.bedTrackerHudShadow = this.bedTrackerDelegate.hudShadow;
         this.bedTrackerDelegate.setEnabled(true);
     }
 
@@ -426,8 +464,7 @@ public class BedwarUtils extends Module {
         return codes[best];
     }
 
-    private static class BedTracker extends Module {
-        private static final Minecraft mc = Minecraft.getMinecraft();
+    private class BedTracker extends Module {
         private static final long BED_SCAN_DELAY_MS = 3000L;
         private static final long BED_RESCAN_DELAY_MS = 5000L;
         private final LinkedHashMap<String, Long> alertCooldowns;
@@ -509,30 +546,36 @@ public class BedwarUtils extends Module {
             this.lastBedScanAttempt = -1L;
             this.scannedThisGame = false;
             this.lastAutoIncTime = -1L;
-            this.alerts = new BooleanProperty("alerts", true);
-            this.alertRange = new IntProperty("alerts-range", 48, 8, 128, this.alerts::getValue);
-            this.alertOnPearl = new BooleanProperty("alerts-on-pearl", true);
+            this.alerts = new BooleanProperty("alerts", true, BedwarUtils.this.bedTracker::getValue);
+            this.alertRange = new IntProperty("alerts-range", 48, 8, 128,
+                    () -> BedwarUtils.this.bedTracker.getValue() && this.alerts.getValue());
+            this.alertOnPearl = new BooleanProperty("alerts-on-pearl", true, BedwarUtils.this.bedTracker::getValue);
             this.alertSound = new ModeProperty("alerts-sound", 1, new String[] { "NONE", "MEOW", "ANVIL" },
-                    () -> this.alerts.getValue() || this.alertOnPearl.getValue());
+                    () -> BedwarUtils.this.bedTracker.getValue() && (this.alerts.getValue() || this.alertOnPearl.getValue()));
             this.alertFrequency = new IntProperty("alerts-frequency", 5, 1, 30,
-                    () -> this.alerts.getValue() || this.alertOnPearl.getValue());
-            this.autoInc = new BooleanProperty("auto-inc", false);
-            this.marco = new BooleanProperty("macro", false);
-            this.marcoRange = new IntProperty("macro-range", 24, 8, 128, this.marco::getValue);
-            this.marcoOnPreal = new BooleanProperty("macro-on-pearl", false);
+                    () -> BedwarUtils.this.bedTracker.getValue() && (this.alerts.getValue() || this.alertOnPearl.getValue()));
+            this.autoInc = new BooleanProperty("auto-inc", false, BedwarUtils.this.bedTracker::getValue);
+            this.marco = new BooleanProperty("macro", false, BedwarUtils.this.bedTracker::getValue);
+            this.marcoRange = new IntProperty("macro-range", 24, 8, 128,
+                    () -> BedwarUtils.this.bedTracker.getValue() && this.marco.getValue());
+            this.marcoOnPreal = new BooleanProperty("macro-on-pearl", false, BedwarUtils.this.bedTracker::getValue);
             this.marcoText = new TextProperty("macro-text", "/lobby",
-                    () -> this.marco.getValue() || this.marcoOnPreal.getValue());
+                    () -> BedwarUtils.this.bedTracker.getValue() && (this.marco.getValue() || this.marcoOnPreal.getValue()));
             this.marcoDelay = new IntProperty("macro-delay", 1, 1, 10,
-                    () -> this.marco.getValue() || this.marcoOnPreal.getValue());
-            this.hud = new BooleanProperty("hud", true);
+                    () -> BedwarUtils.this.bedTracker.getValue() && (this.marco.getValue() || this.marcoOnPreal.getValue()));
+            this.hud = new BooleanProperty("hud", true, BedwarUtils.this.bedTracker::getValue);
             this.hudPosX = new ModeProperty("hud-position-x", 0, new String[] { "LEFT", "MIDDLE", "RIGHT" },
-                    this.hud::getValue);
+                    () -> BedwarUtils.this.bedTracker.getValue() && this.hud.getValue());
             this.hudPosY = new ModeProperty("hud-position-y", 0, new String[] { "TOP", "MIDDLE", "BOTTOM" },
-                    this.hud::getValue);
-            this.hudOffX = new IntProperty("hud-offset-x", 2, 0, 255, this.hud::getValue);
-            this.hudOffY = new IntProperty("hud-offset-y", 2, 0, 255, this.hud::getValue);
-            this.hudScale = new FloatProperty("hud-scale", 1.0F, 0.5F, 1.5F, this.hud::getValue);
-            this.hudShadow = new BooleanProperty("hud-shadow", true, this.hud::getValue);
+                    () -> BedwarUtils.this.bedTracker.getValue() && this.hud.getValue());
+            this.hudOffX = new IntProperty("hud-offset-x", 2, 0, 255,
+                    () -> BedwarUtils.this.bedTracker.getValue() && this.hud.getValue());
+            this.hudOffY = new IntProperty("hud-offset-y", 2, 0, 255,
+                    () -> BedwarUtils.this.bedTracker.getValue() && this.hud.getValue());
+            this.hudScale = new FloatProperty("hud-scale", 1.0F, 0.5F, 1.5F,
+                    () -> BedwarUtils.this.bedTracker.getValue() && this.hud.getValue());
+            this.hudShadow = new BooleanProperty("hud-shadow", true,
+                    () -> BedwarUtils.this.bedTracker.getValue() && this.hud.getValue());
         }
 
         private void resetTracking() {

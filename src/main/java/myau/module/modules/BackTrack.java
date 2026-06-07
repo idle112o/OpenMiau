@@ -54,18 +54,14 @@ public class BackTrack extends Module {
     private static final Minecraft mc = Minecraft.getMinecraft();
 
     public final ModeProperty mode = new ModeProperty("mode", 0, new String[]{"PACKET", "FAKE_PLAYER"});
-    public final IntProperty nextBacktrackDelay = new IntProperty("next-backtrack-delay", 0, 0, 2000, () -> mode.getValue() == 0);
-    public final IntProperty latencyMin = new IntProperty("min-delay", 80, 0, 2000, () -> mode.getValue() == 0);
-    public final IntProperty latencyMax = new IntProperty("max-delay", 80, 0, 2000, () -> mode.getValue() == 0);
-    public final FloatProperty distanceMin = new FloatProperty("distance-min", 2.0F, 0.0F, 6.0F, () -> mode.getValue() == 0);
-    public final FloatProperty distanceMax = new FloatProperty("distance-max", 3.0F, 0.0F, 6.0F, () -> mode.getValue() == 0);
-    public final IntProperty maxPackets = new IntProperty("max-packets", 50, 1, 200, () -> mode.getValue() == 0);
-    public final ModeProperty releaseStyle = new ModeProperty("style", 1, new String[]{"PULSE", "SMOOTH"}, () -> mode.getValue() == 0);
-    public final BooleanProperty smart = new BooleanProperty("smart", true, () -> mode.getValue() == 0);
+    public final BooleanProperty cancelClientPacket = new BooleanProperty("cancel-client-packet", false, () -> mode.getValue() == 0);
+    public final BooleanProperty swingCheck = new BooleanProperty("swing-check", false, () -> mode.getValue() == 0);
+    public final ModeProperty activeMode = new ModeProperty("active-mode", 2, new String[]{"HIT", "NOT_HIT", "ALWAYS"}, () -> mode.getValue() == 0);
+    public final BooleanProperty releaseOnVelocity = new BooleanProperty("release-on-velocity", false, () -> mode.getValue() == 0);
+    public final IntProperty minMS = new IntProperty("min-ms", 50, 0, 5000, () -> mode.getValue() == 0);
+    public final IntProperty maxMS = new IntProperty("max-ms", 200, 0, 5000, () -> mode.getValue() == 0);
     public final ModeProperty espMode = new ModeProperty("esp", 2, new String[]{"NONE", "BOX", "FILLED", "MODEL", "WIREFRAME"});
     public final ColorProperty espColor = new ColorProperty("color", 0xFFFFFFFF);
-    public final BooleanProperty pauseOnHurt = new BooleanProperty("pause-on-hurt", false, () -> mode.getValue() == 0);
-    public final IntProperty pauseHurtTime = new IntProperty("pause-hurt-time", 3, 0, 10, () -> mode.getValue() == 0 && pauseOnHurt.getValue());
     public final IntProperty fakePlayerPulseDelay = new IntProperty("fake-player-pulse-delay", 200, 50, 500, () -> mode.getValue() == 1);
     public final IntProperty fakePlayerIntavePackets = new IntProperty("fake-player-intave-packets", 5, 1, 30, () -> mode.getValue() == 1);
 
@@ -77,13 +73,10 @@ public class BackTrack extends Module {
     private static final int MAX_POSITIONS_SIZE = 100;
     private static final String[] NON_DELAYED_SOUND_SUBSTRINGS = new String[]{"game.player.hurt", "game.player.die"};
 
-    private Vec3 trackedPosition = zeroVec();
+    private Vec3 realPosition = zeroVec();
     private EntityPlayer target;
     private int currentLatency;
-    private long delayForNextBacktrack;
-    private boolean latencyRefreshPending;
     private boolean shouldRender;
-    private boolean ignoreWholeTick;
     private EntityOtherPlayerMP fakePlayer;
     private EntityLivingBase currentTarget;
     private boolean fakeShown;
@@ -97,8 +90,6 @@ public class BackTrack extends Module {
     public void onEnabled() {
         clear(false, true, false, true);
         currentLatency = randomLatency();
-        delayForNextBacktrack = 0L;
-        latencyRefreshPending = true;
     }
 
     @Override
@@ -127,29 +118,7 @@ public class BackTrack extends Module {
             return;
         }
 
-        if (shouldBacktrack() && target != null) {
-            shouldRender = true;
-
-            double trackedDistance = mc.thePlayer.getDistance(trackedPosition.xCoord, trackedPosition.yCoord, trackedPosition.zCoord);
-            double realDistance = mc.thePlayer.getDistanceToEntity(target);
-            boolean inDelayWindow = releaseStyle.getValue() == 1 || !cycleTimer.hasTimeElapsed(currentLatency);
-
-            if (trackedDistance <= 6.0D && (!smart.getValue() || trackedDistance >= realDistance) && inDelayWindow) {
-                if (isInConfiguredDistance(realDistance)) {
-                    handlePackets();
-                } else {
-                    handlePacketsRange();
-                }
-            } else {
-                clear(true, false, true, false);
-            }
-        } else {
-            clear(true, false, true, false);
-        }
-
-        updatePacketDelayCycle();
-
-        ignoreWholeTick = false;
+        updateMoonLightPacketMode();
     }
 
     @EventTarget
@@ -161,30 +130,17 @@ public class BackTrack extends Module {
         }
 
         Packet<?> packet = event.getPacket();
-        if (skipPackets.remove(packet)) return;
 
-        if (packetQueue.isEmpty() && target == null && !shouldBacktrack()) return;
-
-        if (isIgnoredPacket(packet)) return;
-
+        if (target == null) return;
         if (isFlushPacket(packet)) {
-            clear(true, false, true, true);
+            clear(false, false, false, true);
             return;
         }
 
-        if (target == null || !shouldBacktrack()) return;
-
-        Vec3 nextPosition = predictPosition(packet, target, trackedPosition);
-        if (nextPosition != null) {
-            rememberPosition(trackedPosition);
-            trackedPosition = nextPosition;
+        updateRealPosition(packet);
+        if (cancelClientPacket.getValue() && shouldMoonLightBacktrack()) {
+            event.setCancelled(true);
         }
-
-        event.setCancelled(true);
-        if (packetQueue.size() >= maxPackets.getValue()) {
-            releaseOldestPacket();
-        }
-        packetQueue.add(new QueuedPacket(packet, System.currentTimeMillis()));
     }
 
     @EventTarget
@@ -199,27 +155,25 @@ public class BackTrack extends Module {
         EntityPlayer attacked = (EntityPlayer) event.getTarget();
         if (attacked == target) return;
 
-        clear(true, false, false, true);
+        clear(false, false, false, true);
         target = attacked;
-        trackedPosition = attacked.getPositionVector();
-        rememberPosition(trackedPosition);
+        realPosition = attacked.getPositionVector();
         currentLatency = randomLatency();
-        latencyRefreshPending = false;
     }
 
     @EventTarget
     public void onRender3D(Render3DEvent event) {
-        if (!this.isEnabled() || mode.getValue() != 0 || !shouldRender || target == null || trackedPosition == null || target.isDead || currentLatency <= 0) return;
+        if (!this.isEnabled() || mode.getValue() != 0 || !shouldRender || target == null || realPosition == null || target.isDead || currentLatency <= 0) return;
         if (espMode.getValue() == 0) return;
 
         Color color = new Color(espColor.getValue(), true);
-        double x = trackedPosition.xCoord - mc.getRenderManager().viewerPosX;
-        double y = trackedPosition.yCoord - mc.getRenderManager().viewerPosY;
-        double z = trackedPosition.zCoord - mc.getRenderManager().viewerPosZ;
+        double x = realPosition.xCoord - mc.getRenderManager().viewerPosX;
+        double y = realPosition.yCoord - mc.getRenderManager().viewerPosY;
+        double z = realPosition.zCoord - mc.getRenderManager().viewerPosZ;
 
         if (espMode.getValue() == 3) {
             GlStateManager.pushMatrix();
-            GlStateManager.translate(trackedPosition.xCoord - target.posX, trackedPosition.yCoord - target.posY, trackedPosition.zCoord - target.posZ);
+            GlStateManager.translate(realPosition.xCoord - target.posX, realPosition.yCoord - target.posY, realPosition.zCoord - target.posZ);
             GlStateManager.disableDepth();
             GlStateManager.enableBlend();
             mc.getRenderManager().renderEntityStatic(target, event.getPartialTicks(), false);
@@ -262,28 +216,57 @@ public class BackTrack extends Module {
                 && mc.thePlayer.getHealth() > 0.0F
                 && (target.getHealth() > 0.0F || Float.isNaN(target.getHealth()))
                 && mc.playerController.getCurrentGameType() != WorldSettings.GameType.SPECTATOR
-                && System.currentTimeMillis() >= delayForNextBacktrack
                 && !target.isDead
-                && target != mc.thePlayer
-                && !ignoreWholeTick
-                && (!pauseOnHurt.getValue() || target.hurtTime < pauseHurtTime.getValue());
+                && target != mc.thePlayer;
     }
 
-    private boolean isInConfiguredDistance(double distance) {
-        return distance >= Math.min(distanceMin.getValue(), distanceMax.getValue())
-                && distance <= Math.max(distanceMin.getValue(), distanceMax.getValue());
-    }
-
-    private boolean isIgnoredPacket(Packet<?> packet) {
-        if (packet instanceof S02PacketChat) return true;
-        if (packet instanceof S19PacketEntityStatus && target != null && ((S19PacketEntityStatus) packet).getEntity(mc.theWorld) == target) return true;
-        if (packet instanceof S29PacketSoundEffect) {
-            String soundName = ((S29PacketSoundEffect) packet).getSoundName();
-            for (String ignored : NON_DELAYED_SOUND_SUBSTRINGS) {
-                if (soundName != null && soundName.contains(ignored)) return true;
-            }
+    private void updateMoonLightPacketMode() {
+        if (mc.thePlayer.isDead || !shouldBacktrack()) {
+            clear(false, false, false, !shouldBacktrack());
+            return;
         }
-        return false;
+        if (swingCheck.getValue() && !mc.thePlayer.isSwingInProgress) {
+            disableSpoof();
+            return;
+        }
+        if (shouldMoonLightBacktrack()) {
+            currentLatency = randomLatency();
+            Myau.lagManager.setDelay(Math.max(0, currentLatency / 50));
+            shouldRender = true;
+        } else {
+            disableSpoof();
+        }
+    }
+
+    private boolean shouldMoonLightBacktrack() {
+        if (!shouldBacktrack() || realPosition == null) return false;
+        double realDistance = realPosition.distanceTo(mc.thePlayer.getPositionVector());
+        double clientDistance = target.getDistanceToEntity(mc.thePlayer);
+        return realDistance > clientDistance
+                && realDistance > 2.3D
+                && realDistance < 5.9D
+                && shouldActive(target)
+                && (!releaseOnVelocity.getValue() || mc.thePlayer.hurtTime == 0);
+    }
+
+    private boolean shouldActive(EntityPlayer target) {
+        return activeMode.getValue() == 2
+                || activeMode.getValue() == 0 && target.hurtTime != 0
+                || activeMode.getValue() == 1 && target.hurtTime == 0;
+    }
+
+    private void disableSpoof() {
+        Myau.lagManager.setDelay(0);
+        shouldRender = false;
+    }
+
+    private void updateRealPosition(Packet<?> packet) {
+        Vec3 next = predictPosition(packet, target, realPosition);
+        if (next != null) {
+            realPosition = next;
+        } else if (!shouldMoonLightBacktrack() && target != null) {
+            realPosition = target.getPositionVector();
+        }
     }
 
     private boolean isFlushPacket(Packet<?> packet) {
@@ -330,72 +313,8 @@ public class BackTrack extends Module {
         return null;
     }
 
-    private void rememberPosition(Vec3 position) {
-        if (position == null) return;
-        while (positions.size() >= MAX_POSITIONS_SIZE) {
-            positions.poll();
-        }
-        positions.add(new TimedPosition(position, System.currentTimeMillis()));
-    }
-
-    private void handlePackets() {
-        if (releaseStyle.getValue() == 0) {
-            if (!cycleTimer.hasTimeElapsed(currentLatency)) return;
-            releaseAll();
-            cycleTimer.reset();
-            return;
-        }
-
-        long expireTime = System.currentTimeMillis() - currentLatency;
-        while (!packetQueue.isEmpty()) {
-            QueuedPacket queuedPacket = packetQueue.peek();
-            if (queuedPacket == null || queuedPacket.time > expireTime) break;
-            packetQueue.poll();
-            receiveQueuedPacket(queuedPacket.packet);
-        }
-        positions.removeIf(position -> position.time < expireTime);
-    }
-
-    private void handlePacketsRange() {
-        long time = getRangeTime();
-        if (time == -1L) {
-            clear(true, false, true, false);
-            return;
-        }
-        while (!packetQueue.isEmpty()) {
-            QueuedPacket queuedPacket = packetQueue.peek();
-            if (queuedPacket == null || queuedPacket.time > time) break;
-            packetQueue.poll();
-            receiveQueuedPacket(queuedPacket.packet);
-        }
-        positions.removeIf(position -> position.time < time);
-    }
-
-    private long getRangeTime() {
-        if (target == null) return 0L;
-        long time = 0L;
-        boolean found = false;
-        for (TimedPosition data : positions) {
-            time = data.time;
-            if (isInConfiguredDistance(mc.thePlayer.getDistance(data.position.xCoord, data.position.yCoord, data.position.zCoord))) {
-                found = true;
-                break;
-            }
-        }
-        return found ? time : -1L;
-    }
-
-    private void releaseOldestPacket() {
-        QueuedPacket queuedPacket = packetQueue.poll();
-        if (queuedPacket != null) receiveQueuedPacket(queuedPacket.packet);
-    }
-
     private void releaseAll() {
-        while (!packetQueue.isEmpty()) {
-            QueuedPacket queuedPacket = packetQueue.poll();
-            if (queuedPacket != null) receiveQueuedPacket(queuedPacket.packet);
-        }
-        if (target != null) trackedPosition = target.getPositionVector();
+        packetQueue.clear();
     }
 
     private void clear(boolean handlePackets, boolean clearOnly, boolean applyCooldown, boolean clearTarget) {
@@ -405,34 +324,16 @@ public class BackTrack extends Module {
             packetQueue.clear();
         }
         positions.clear();
-        if (applyCooldown && target != null) {
-            delayForNextBacktrack = System.currentTimeMillis() + nextBacktrackDelay.getValue();
-        }
         if (clearTarget) {
             target = null;
-            trackedPosition = zeroVec();
+            realPosition = zeroVec();
         }
         shouldRender = false;
-        ignoreWholeTick = true;
-        if (clearOnly || clearTarget) {
-            latencyRefreshPending = true;
-        }
+        Myau.lagManager.setDelay(0);
         cycleTimer.reset();
     }
 
     private void updatePacketDelayCycle() {
-        boolean queueEmpty = packetQueue.isEmpty();
-
-        if (!queueEmpty) {
-            latencyRefreshPending = false;
-            return;
-        }
-
-        if (latencyRefreshPending && !shouldBacktrack()) {
-            delayForNextBacktrack = System.currentTimeMillis() + nextBacktrackDelay.getValue();
-            currentLatency = randomLatency();
-            latencyRefreshPending = false;
-        }
     }
 
     private void receiveQueuedPacket(Packet<?> packet) {
@@ -442,7 +343,7 @@ public class BackTrack extends Module {
     }
 
     private int randomLatency() {
-        return randomInt(latencyMin.getValue(), latencyMax.getValue());
+        return randomInt(minMS.getValue(), maxMS.getValue());
     }
 
     private static int randomInt(int min, int max) {
@@ -456,10 +357,10 @@ public class BackTrack extends Module {
     }
 
     public Vec3 getTrackedPositionForDebug(EntityLivingBase entity) {
-        if (!this.isEnabled() || mode.getValue() != 0 || entity == null || target == null || trackedPosition == null) return null;
+        if (!this.isEnabled() || mode.getValue() != 0 || entity == null || target == null || realPosition == null) return null;
         if (entity.getEntityId() != target.getEntityId()) return null;
-        if (trackedPosition.xCoord == 0.0D && trackedPosition.yCoord == 0.0D && trackedPosition.zCoord == 0.0D) return null;
-        return trackedPosition;
+        if (realPosition.xCoord == 0.0D && realPosition.yCoord == 0.0D && realPosition.zCoord == 0.0D) return null;
+        return realPosition;
     }
 
     private void attackRealTarget(EntityLivingBase entity) {

@@ -1,6 +1,7 @@
 package myau.module.modules;
 
 import myau.Myau;
+import myau.enums.BlinkModules;
 import myau.event.EventTarget;
 import myau.event.types.EventType;
 import myau.events.LoadWorldEvent;
@@ -59,10 +60,11 @@ public class FakeLag extends Module {
     public final ColorProperty lineColor = new ColorProperty("line-color", Color.GREEN.getRGB(), () -> mode.getValue() == 0 && line.getValue());
 
     public final IntProperty dynamicDelay = new IntProperty("dynamic-delay", 200, 25, 1000, () -> mode.getValue() == 1);
+    public final IntProperty dynamicCooldown = new IntProperty("dynamic-cooldown", 120, 0, 500, () -> mode.getValue() == 1);
     public final BooleanProperty dynamicDebug = new BooleanProperty("dynamic-debug", false, () -> mode.getValue() == 1);
     public final BooleanProperty dynamicIgnoreTeammates = new BooleanProperty("dynamic-ignore-teammates", true, () -> mode.getValue() == 1);
     public final BooleanProperty dynamicStopOnHurt = new BooleanProperty("dynamic-stop-on-hurt", true, () -> mode.getValue() == 1);
-    public final IntProperty dynamicStopOnHurtTime = new IntProperty("dynamic-stop-on-hurt-time", 500, 0, 1000, () -> mode.getValue() == 1);
+    public final IntProperty dynamicStopOnHurtTime = new IntProperty("dynamic-stop-on-hurt-time", 500, 0, 1000, () -> mode.getValue() == 1 && dynamicStopOnHurt.getValue());
     public final FloatProperty dynamicStartRange = new FloatProperty("dynamic-start-range", 6.0F, 3.0F, 10.0F, () -> mode.getValue() == 1);
     public final FloatProperty dynamicStopRange = new FloatProperty("dynamic-stop-range", 3.5F, 1.0F, 6.0F, () -> mode.getValue() == 1);
     public final FloatProperty dynamicMaxTargetRange = new FloatProperty("dynamic-max-target-range", 15.0F, 6.0F, 20.0F, () -> mode.getValue() == 1);
@@ -77,6 +79,7 @@ public class FakeLag extends Module {
 
     private AbstractClientPlayer dynamicTarget;
     private long dynamicLastDisableTime = -1L;
+    private long dynamicLastStopBlinkTime = -1L;
     private boolean dynamicLastHurt;
     private long dynamicLastStartBlinkTime = -1L;
 
@@ -92,12 +95,14 @@ public class FakeLag extends Module {
         this.ignoreWholeTick = false;
         this.dynamicTarget = null;
         this.dynamicLastDisableTime = -1L;
+        this.dynamicLastStopBlinkTime = -1L;
         this.dynamicLastHurt = false;
         this.dynamicLastStartBlinkTime = -1L;
     }
 
     @Override
     public void onDisabled() {
+        stopDynamicBlink();
         if (mc.thePlayer != null) {
             this.blink(true);
         } else {
@@ -169,6 +174,7 @@ public class FakeLag extends Module {
 
     @EventTarget
     public void onWorldLoad(LoadWorldEvent event) {
+        stopDynamicBlink();
         this.blink(false);
     }
 
@@ -238,47 +244,88 @@ public class FakeLag extends Module {
     }
 
     private void handleDynamic() {
-        Blink blink = (Blink) Myau.moduleManager.modules.get(Blink.class);
-        if (blink == null) return;
+        boolean blinking = isDynamicBlinking();
+        long now = System.currentTimeMillis();
 
-        if (dynamicLastDisableTime > 0 && System.currentTimeMillis() - dynamicLastDisableTime <= dynamicStopOnHurtTime.getValue()) {
-            blink.setEnabled(false);
+        if (dynamicStopOnHurt.getValue() && dynamicLastDisableTime > 0 && now - dynamicLastDisableTime <= dynamicStopOnHurtTime.getValue()) {
+            if (blinking) {
+                dynamicMessage("stop lag: hurt cooldown.");
+                stopDynamicBlink();
+                blinking = false;
+            }
+            dynamicLastHurt = mc.thePlayer.hurtTime > 0;
+            return;
         }
 
-        if (blink.isEnabled()) {
-            if (System.currentTimeMillis() - dynamicLastStartBlinkTime > dynamicDelay.getValue()) {
+        if (blinking) {
+            if (now - dynamicLastStartBlinkTime >= dynamicDelay.getValue()) {
                 dynamicMessage("stop lag: time out.");
-                dynamicLastStartBlinkTime = System.currentTimeMillis();
-                blink.setEnabled(false);
+                stopDynamicBlink();
+                blinking = false;
             } else if (!dynamicLastHurt && mc.thePlayer.hurtTime > 0 && dynamicStopOnHurt.getValue()) {
                 dynamicMessage("stop lag: hurt.");
-                dynamicLastDisableTime = System.currentTimeMillis();
-                blink.setEnabled(false);
+                dynamicLastDisableTime = now;
+                stopDynamicBlink();
+                blinking = false;
             }
         }
 
-        if (dynamicTarget != null && !dynamicTarget.isDead) {
-            double distance = mc.thePlayer.getDistanceToEntity(dynamicTarget);
-            if (blink.isEnabled() && distance < dynamicStopRange.getValue()) {
-                dynamicMessage("stop lag: too low range.");
-                blink.setEnabled(false);
-            } else if (!blink.isEnabled() && distance > dynamicStopRange.getValue() && distance < dynamicStartRange.getValue()) {
-                dynamicMessage("start lag: in range.");
-                dynamicLastStartBlinkTime = System.currentTimeMillis();
-                blink.setEnabled(true);
-            } else if (blink.isEnabled() && distance > dynamicStartRange.getValue()) {
-                dynamicMessage("stop lag: out of range.");
-                blink.setEnabled(false);
-            } else if (distance > dynamicMaxTargetRange.getValue()) {
-                dynamicMessage("release target: " + dynamicTarget.getName());
+        if (!isValidDynamicTarget(dynamicTarget)) {
+            if (dynamicTarget != null) {
+                dynamicMessage("release target: invalid.");
                 dynamicTarget = null;
-                blink.setEnabled(false);
             }
-        } else {
-            blink.setEnabled(false);
+            stopDynamicBlink();
+            dynamicLastHurt = mc.thePlayer.hurtTime > 0;
+            return;
+        }
+
+        double distance = mc.thePlayer.getDistanceToEntity(dynamicTarget);
+        float startRange = Math.max(dynamicStartRange.getValue(), dynamicStopRange.getValue());
+        float stopRange = Math.min(dynamicStartRange.getValue(), dynamicStopRange.getValue());
+
+        if (distance > dynamicMaxTargetRange.getValue()) {
+            dynamicMessage("release target: " + dynamicTarget.getName());
+            dynamicTarget = null;
+            stopDynamicBlink();
+        } else if (blinking && distance <= stopRange) {
+            dynamicMessage("stop lag: too close.");
+            stopDynamicBlink();
+        } else if (blinking && distance >= startRange) {
+            dynamicMessage("stop lag: out of range.");
+            stopDynamicBlink();
+        } else if (!blinking && distance > stopRange && distance < startRange && now - dynamicLastStopBlinkTime >= dynamicCooldown.getValue()) {
+            dynamicMessage("start lag: in range.");
+            dynamicLastStartBlinkTime = now;
+            startDynamicBlink();
         }
 
         dynamicLastHurt = mc.thePlayer.hurtTime > 0;
+    }
+
+    private boolean isValidDynamicTarget(AbstractClientPlayer target) {
+        return target != null
+                && !target.isDead
+                && target.getHealth() > 0.0F
+                && mc.theWorld != null
+                && mc.theWorld.loadedEntityList.contains(target)
+                && (!dynamicIgnoreTeammates.getValue() || !TeamUtil.isSameTeam(target));
+    }
+
+    private boolean isDynamicBlinking() {
+        return Myau.blinkManager.getBlinkingModule() == BlinkModules.FAKE_LAG;
+    }
+
+    private void startDynamicBlink() {
+        if (isDynamicBlinking()) return;
+        Myau.blinkManager.setBlinkState(false, Myau.blinkManager.getBlinkingModule());
+        Myau.blinkManager.setBlinkState(true, BlinkModules.FAKE_LAG);
+    }
+
+    private void stopDynamicBlink() {
+        if (Myau.blinkManager.setBlinkState(false, BlinkModules.FAKE_LAG)) {
+            dynamicLastStopBlinkTime = System.currentTimeMillis();
+        }
     }
 
     private void dynamicMessage(String message) {

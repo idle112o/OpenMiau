@@ -14,6 +14,8 @@ import myau.module.modules.*;
 import myau.property.Property;
 import myau.property.PropertyManager;
 
+import org.lwjgl.opengl.Display;
+
 import java.io.InputStreamReader;
 import java.lang.reflect.Field;
 import java.nio.charset.StandardCharsets;
@@ -21,8 +23,8 @@ import java.util.ArrayList;
 import java.util.Objects;
 
 public class Myau {
-    public static String clientName = "&7[&cM&6y&ea&au&7]&r ";
-    public static String version;
+    public static String clientName = "&7[&cOpen&fMiau&7]&r ";
+    public static String version = ClientInfo.VERSION;
     public static RotationManager rotationManager;
     public static FloatManager floatManager;
     public static BlinkManager blinkManager;
@@ -74,12 +76,14 @@ public class Myau {
         moduleManager.modules.put(AutoClicker.class, new AutoClicker());
         moduleManager.modules.put(AutoAnduril.class, new AutoAnduril());
         moduleManager.modules.put(AutoHeal.class, new AutoHeal());
+        moduleManager.modules.put(AutoRod.class, new AutoRod());
         moduleManager.modules.put(AutoTool.class, new AutoTool());
         moduleManager.modules.put(AutoBedDef.class, new AutoBedDef());
         moduleManager.modules.put(BedNuker.class, new BedNuker());
         moduleManager.modules.put(BedESP.class, new BedESP());
         moduleManager.modules.put(BedwarUtils.class, new BedwarUtils());
         moduleManager.modules.put(Blink.class, new Blink());
+        moduleManager.modules.put(BlockHit.class, new BlockHit());
         moduleManager.modules.put(BackTrack.class, new BackTrack());
         moduleManager.modules.put(Chams.class, new Chams());
         moduleManager.modules.put(ChestESP.class, new ChestESP());
@@ -189,8 +193,9 @@ public class Myau {
             JsonObject modInfo = new JsonParser().parse(reader).getAsJsonObject();
             version = modInfo.get("version").getAsString();
         } catch (Exception e) {
-            version = "dev";
+            version = ClientInfo.VERSION;
         }
+        Display.setTitle(ClientInfo.getDisplayVersion());
 
         AccountManager.init();
     }

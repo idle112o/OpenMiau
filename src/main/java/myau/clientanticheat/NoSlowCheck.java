@@ -21,8 +21,15 @@ public class NoSlowCheck {
         ItemStack heldItem = player.getHeldItem();
         boolean usingSlowItem = this.isSlowItem(heldItem) && (player.isBlocking() || player.isEating() || player.isUsingItem());
         double horizontalSpeed = Math.sqrt(player.motionX * player.motionX + player.motionZ * player.motionZ);
+        boolean exempt = player.hurtTime > 0
+                || player.hurtResistantTime > 10
+                || player.isCollidedHorizontally
+                || player.isInWater()
+                || player.isInLava()
+                || player.isOnLadder()
+                || player.isRiding();
 
-        if (usingSlowItem) {
+        if (usingSlowItem && !exempt) {
             this.usingTicks.putIfAbsent(name, currentTick);
             long ticksUsing = currentTick - this.usingTicks.get(name);
             if (ticksUsing > 5 && player.isSprinting()) {
@@ -31,8 +38,8 @@ public class NoSlowCheck {
                 this.decay(name, this.sprintBuffer);
             }
 
-            double maxExpected = player.onGround ? 0.18D : 0.26D;
-            if (ticksUsing > 7 && horizontalSpeed > maxExpected) {
+            double maxExpected = player.onGround ? 0.20D : 0.28D;
+            if (ticksUsing > 7 && horizontalSpeed > maxExpected && player.hurtTime == 0) {
                 this.buffer(name, this.speedBuffer, 4, context);
             } else {
                 this.decay(name, this.speedBuffer);

@@ -13,6 +13,10 @@ val version: String by project
 val mixinGroup = "$baseGroup.mixin"
 val modid: String by project
 val jarName: String by project
+val gitCommit: String = providers.exec {
+    commandLine("git", "rev-parse", "--short", "HEAD")
+}.standardOutput.asText.get().trim().ifEmpty { "unknown" }
+val githubBuild: Boolean = providers.environmentVariable("GITHUB_ACTIONS").orNull.equals("true", ignoreCase = true)
 val transformerFile = file("src/main/resources/accesstransformer.cfg")
 // Toolchains:
 java {
@@ -52,6 +56,7 @@ loom {
     }
 }
 sourceSets.main {
+    java.srcDir(layout.buildDirectory.dir("generated/sources/clientInfo/java"))
     output.setResourcesDir(sourceSets.main.flatMap { it.java.classesDirectory })
 }
 // Dependencies:
@@ -77,7 +82,19 @@ dependencies {
     runtimeOnly("me.djtheredstoner:DevAuth-forge-legacy:1.2.1")
 }
 // Tasks:
+val generateClientInfo by tasks.registering(Copy::class) {
+    from("src/main/templates")
+    into(layout.buildDirectory.dir("generated/sources/clientInfo/java"))
+    expand(
+        "version" to version,
+        "mcversion" to mcVersion,
+        "gitCommit" to gitCommit,
+        "githubBuild" to githubBuild.toString()
+    )
+}
+
 tasks.withType(JavaCompile::class) {
+    dependsOn(generateClientInfo)
     options.encoding = "UTF-8"
 }
 tasks.withType(org.gradle.jvm.tasks.Jar::class) {

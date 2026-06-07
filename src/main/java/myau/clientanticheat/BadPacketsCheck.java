@@ -1,6 +1,7 @@
 package myau.clientanticheat;
 
 import net.minecraft.entity.player.EntityPlayer;
+import net.minecraft.util.MathHelper;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -19,7 +20,7 @@ public class BadPacketsCheck {
         boolean invalidPitch = pitch > 90.0F || pitch < -90.0F;
         boolean hugeAcceleration = false;
         if (this.lastYaw.containsKey(name)) {
-            float yawDiff = Math.abs(yaw - this.lastYaw.get(name));
+            float yawDiff = Math.abs(MathHelper.wrapAngleTo180_float(yaw - this.lastYaw.get(name)));
             float pitchDiff = Math.abs(pitch - this.lastPitch.get(name));
             hugeAcceleration = yawDiff > 160.0F && pitchDiff > 60.0F;
         }
