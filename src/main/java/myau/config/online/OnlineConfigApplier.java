@@ -1,0 +1,85 @@
+package myau.config.online;
+
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
+import myau.Myau;
+import myau.module.Module;
+import myau.property.Property;
+
+import java.util.ArrayList;
+
+public class OnlineConfigApplier {
+    public int apply(String json) throws Exception {
+        JsonElement parsed = new JsonParser().parse(json);
+        if (parsed == null || !parsed.isJsonObject()) {
+            throw new Exception("Invalid Myau config JSON");
+        }
+
+        int applied = 0;
+        JsonObject root = parsed.getAsJsonObject();
+        for (Module module : Myau.moduleManager.modules.values()) {
+            JsonObject object = findModuleObject(root, module);
+            if (object == null) {
+                continue;
+            }
+            applied += applyModule(module, object);
+        }
+        return applied;
+    }
+
+    private JsonObject findModuleObject(JsonObject root, Module module) {
+        JsonElement element = root.get(module.getName());
+        if (element == null || !element.isJsonObject()) {
+            element = root.get(module.getClass().getSimpleName());
+        }
+        return element != null && element.isJsonObject() ? element.getAsJsonObject() : null;
+    }
+
+    private int applyModule(Module module, JsonObject object) {
+        int applied = 0;
+        if (readBoolean(object, "toggled", module::setEnabled)) applied++;
+        if (readInt(object, "key", module::setKey)) applied++;
+        if (readBoolean(object, "hidden", module::setHidden)) applied++;
+
+        ArrayList<Property<?>> properties = Myau.propertyManager.properties.get(module.getClass());
+        if (properties == null) {
+            return applied;
+        }
+        for (Property<?> property : properties) {
+            if (object.has(property.getName())) {
+                try {
+                    if (property.read(object)) {
+                        applied++;
+                    }
+                } catch (Exception ignored) {
+                }
+            }
+        }
+        return applied;
+    }
+
+    private boolean readBoolean(JsonObject object, String name, BooleanConsumer consumer) {
+        if (!object.has(name) || !object.get(name).isJsonPrimitive()) {
+            return false;
+        }
+        consumer.accept(object.get(name).getAsBoolean());
+        return true;
+    }
+
+    private boolean readInt(JsonObject object, String name, IntConsumer consumer) {
+        if (!object.has(name) || !object.get(name).isJsonPrimitive()) {
+            return false;
+        }
+        consumer.accept(object.get(name).getAsInt());
+        return true;
+    }
+
+    private interface BooleanConsumer {
+        void accept(boolean value);
+    }
+
+    private interface IntConsumer {
+        void accept(int value);
+    }
+}

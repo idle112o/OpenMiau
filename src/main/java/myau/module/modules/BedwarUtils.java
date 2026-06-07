@@ -57,7 +57,8 @@ public class BedwarUtils extends Module {
     public final BooleanProperty bedTracker = new BooleanProperty("bedtracker", true);
     public final BooleanProperty invisAlert = new BooleanProperty("invis-alert", true);
 
-    private static final Pattern ITEM_TRACKER_PATTERN = Pattern.compile("(.+?)\\s+has\\s+(?:an?\\s+)?(.+?)(?:[.!])?$", Pattern.CASE_INSENSITIVE);
+    private static final Pattern ITEM_TRACKER_PATTERN = Pattern.compile("(.+?)\\s+has\\s+(?:an?\\s+)?(.+?)(?:[.!])?$",
+            Pattern.CASE_INSENSITIVE);
     private final Set<String> trackedItemMessages = new HashSet<>();
     private final BedTracker bedTrackerDelegate = new BedTracker();
 
@@ -66,8 +67,6 @@ public class BedwarUtils extends Module {
     private boolean sharp;
     private int protLevel;
     private final LinkedHashMap<String, Long> invisAlertCooldowns = new LinkedHashMap<>();
-
-
 
     public BedwarUtils() {
         super("BedwarUtils", false, false);
@@ -220,13 +219,13 @@ public class BedwarUtils extends Module {
         String lower = item.toLowerCase();
         boolean tieredGear = (lower.contains("stone") || lower.contains("iron") || lower.contains("diamond"))
                 && (lower.contains("sword")
-                || lower.contains("armor")
-                || lower.contains("chestplate")
-                || lower.contains("leggings")
-                || lower.contains("boots")
-                || lower.contains("helmet")
-                || lower.contains("pickaxe")
-                || lower.contains("axe"));
+                        || lower.contains("armor")
+                        || lower.contains("chestplate")
+                        || lower.contains("leggings")
+                        || lower.contains("boots")
+                        || lower.contains("helmet")
+                        || lower.contains("pickaxe")
+                        || lower.contains("axe"));
         boolean utilityItem = lower.contains("bow")
                 || lower.contains("shears")
                 || lower.contains("fireball")
@@ -306,34 +305,36 @@ public class BedwarUtils extends Module {
         mc.fontRendererObj.drawString(hasBed ? "true" : "false", valueX, y, hasBed ? green : red, shadow);
     }
 
-
-
-
     private void scanInvisiblePlayers() {
         BlockPos bed = this.bedTrackerDelegate.getBedPos();
-        if (bed == null || mc.theWorld == null || mc.thePlayer == null) return;
+        if (bed == null || mc.theWorld == null || mc.thePlayer == null)
+            return;
         long now = System.currentTimeMillis();
         for (Object object : mc.theWorld.playerEntities) {
-            if (!(object instanceof EntityPlayer)) continue;
+            if (!(object instanceof EntityPlayer))
+                continue;
             EntityPlayer player = (EntityPlayer) object;
-            if (player == mc.thePlayer || player.isDead || player.getName() == null || TeamUtil.isSameTeam(player)) continue;
+            if (player == mc.thePlayer || player.isDead || player.getName() == null || TeamUtil.isSameTeam(player))
+                continue;
             double distance = player.getDistance(bed.getX() + 0.5D, bed.getY() + 0.5D, bed.getZ() + 0.5D);
-            if (distance > 18.0D) continue;
+            if (distance > 18.0D)
+                continue;
             int armorPieces = 0;
             for (int slot = 0; slot < 4; slot++) {
-                if (player.getCurrentArmor(slot) != null) armorPieces++;
+                if (player.getCurrentArmor(slot) != null)
+                    armorPieces++;
             }
             boolean suspicious = player.isInvisible() || armorPieces <= 1;
             String key = player.getName().toLowerCase();
             long last = this.invisAlertCooldowns.getOrDefault(key, 0L);
             if (suspicious && now - last > 5000L) {
                 this.invisAlertCooldowns.put(key, now);
-                ChatUtil.sendFormatted(this.getMyauPrefix() + " &cSuspicious/invis player near bed: &f" + player.getDisplayName().getFormattedText());
+                ChatUtil.sendFormatted(this.getMyauPrefix() + " &cSuspicious/invis player near bed: &f"
+                        + player.getDisplayName().getFormattedText());
                 SoundUtil.playSound("note.pling");
             }
         }
     }
-
 
     private void drawTrapLine(float x, float y) {
         int white = 0xFFFFFFFF;
@@ -348,10 +349,14 @@ public class BedwarUtils extends Module {
     }
 
     private String parseTrapType(String lower) {
-        if (lower.contains("alarm")) return "Alarm";
-        if (lower.contains("miner fatigue") || lower.contains("miner")) return "Miner Fatigue";
-        if (lower.contains("counter-offensive") || lower.contains("counter offensive") || lower.contains("counter")) return "Counter-Offensive";
-        if (lower.contains("it's a trap") || lower.contains("its a trap")) return "It's a Trap";
+        if (lower.contains("alarm"))
+            return "Alarm";
+        if (lower.contains("miner fatigue") || lower.contains("miner"))
+            return "Miner Fatigue";
+        if (lower.contains("counter-offensive") || lower.contains("counter offensive") || lower.contains("counter"))
+            return "Counter-Offensive";
+        if (lower.contains("it's a trap") || lower.contains("its a trap"))
+            return "It's a Trap";
         return "Unknown";
     }
 
@@ -383,11 +388,12 @@ public class BedwarUtils extends Module {
         if (mc.thePlayer == null) {
             return;
         }
-        mc.thePlayer.addChatMessage(new ChatComponentText(this.getMyauPrefix() + " §f" + formattedPlayer + " §fhas §a" + item));
+        mc.thePlayer.addChatMessage(
+                new ChatComponentText(this.getMyauPrefix() + " §f" + formattedPlayer + " §fhas §a" + item));
     }
 
     private String getMyauPrefix() {
-        return "§7[" + this.getHudColorCode() + "M§fyau§7]";
+        return "§7[§cM§6y§ea§au§7]";
     }
 
     private String getHudColorCode() {
@@ -397,8 +403,9 @@ public class BedwarUtils extends Module {
     }
 
     private String nearestChatColor(Color color) {
-        String[] codes = new String[]{"§0", "§1", "§2", "§3", "§4", "§5", "§6", "§7", "§8", "§9", "§a", "§b", "§c", "§d", "§e", "§f"};
-        Color[] colors = new Color[]{
+        String[] codes = new String[] { "§0", "§1", "§2", "§3", "§4", "§5", "§6", "§7", "§8", "§9", "§a", "§b", "§c",
+                "§d", "§e", "§f" };
+        Color[] colors = new Color[] {
                 new Color(0, 0, 0), new Color(0, 0, 170), new Color(0, 170, 0), new Color(0, 170, 170),
                 new Color(170, 0, 0), new Color(170, 0, 170), new Color(255, 170, 0), new Color(170, 170, 170),
                 new Color(85, 85, 85), new Color(85, 85, 255), new Color(85, 255, 85), new Color(85, 255, 255),
@@ -419,8 +426,6 @@ public class BedwarUtils extends Module {
         return codes[best];
     }
 
-    
-    
     private static class BedTracker extends Module {
         private static final Minecraft mc = Minecraft.getMinecraft();
         private static final long BED_SCAN_DELAY_MS = 3000L;
@@ -458,6 +463,7 @@ public class BedwarUtils extends Module {
         public final IntProperty hudOffY;
         public final FloatProperty hudScale;
         public final BooleanProperty hudShadow;
+
         private void playAlertSound() {
             switch (this.alertSound.getValue()) {
                 case 1:
@@ -467,6 +473,7 @@ public class BedwarUtils extends Module {
                     SoundUtil.playSound("random.anvil_land");
             }
         }
+
         private Color getHudColor(int distance) {
             if (distance < 0) {
                 return this.wBed;
@@ -475,12 +482,16 @@ public class BedwarUtils extends Module {
             } else if (distance <= 114) {
                 return ColorUtil.interpolate((float) (114 - distance) / 14.0F, this.yBed, this.gBed);
             } else {
-                return distance <= 128 ? ColorUtil.interpolate((float) (128 - distance) / 14.0F, this.rBed, this.yBed) : this.rBed;
+                return distance <= 128 ? ColorUtil.interpolate((float) (128 - distance) / 14.0F, this.rBed, this.yBed)
+                        : this.rBed;
             }
         }
+
         private boolean isBed(BlockPos blockPos) {
-            return blockPos != null && mc.theWorld != null && mc.theWorld.getBlockState(blockPos).getBlock() == Blocks.bed;
+            return blockPos != null && mc.theWorld != null
+                    && mc.theWorld.getBlockState(blockPos).getBlock() == Blocks.bed;
         }
+
         public BedTracker() {
             super("BedTracker", false, true);
             this.alertCooldowns = new LinkedHashMap<>();
@@ -501,22 +512,29 @@ public class BedwarUtils extends Module {
             this.alerts = new BooleanProperty("alerts", true);
             this.alertRange = new IntProperty("alerts-range", 48, 8, 128, this.alerts::getValue);
             this.alertOnPearl = new BooleanProperty("alerts-on-pearl", true);
-            this.alertSound = new ModeProperty("alerts-sound", 1, new String[]{"NONE", "MEOW", "ANVIL"}, () -> this.alerts.getValue() || this.alertOnPearl.getValue());
-            this.alertFrequency = new IntProperty("alerts-frequency", 5, 1, 30, () -> this.alerts.getValue() || this.alertOnPearl.getValue());
+            this.alertSound = new ModeProperty("alerts-sound", 1, new String[] { "NONE", "MEOW", "ANVIL" },
+                    () -> this.alerts.getValue() || this.alertOnPearl.getValue());
+            this.alertFrequency = new IntProperty("alerts-frequency", 5, 1, 30,
+                    () -> this.alerts.getValue() || this.alertOnPearl.getValue());
             this.autoInc = new BooleanProperty("auto-inc", false);
             this.marco = new BooleanProperty("macro", false);
             this.marcoRange = new IntProperty("macro-range", 24, 8, 128, this.marco::getValue);
             this.marcoOnPreal = new BooleanProperty("macro-on-pearl", false);
-            this.marcoText = new TextProperty("macro-text", "/lobby", () -> this.marco.getValue() || this.marcoOnPreal.getValue());
-            this.marcoDelay = new IntProperty("macro-delay", 1, 1, 10, () -> this.marco.getValue() || this.marcoOnPreal.getValue());
+            this.marcoText = new TextProperty("macro-text", "/lobby",
+                    () -> this.marco.getValue() || this.marcoOnPreal.getValue());
+            this.marcoDelay = new IntProperty("macro-delay", 1, 1, 10,
+                    () -> this.marco.getValue() || this.marcoOnPreal.getValue());
             this.hud = new BooleanProperty("hud", true);
-            this.hudPosX = new ModeProperty("hud-position-x", 0, new String[]{"LEFT", "MIDDLE", "RIGHT"}, this.hud::getValue);
-            this.hudPosY = new ModeProperty("hud-position-y", 0, new String[]{"TOP", "MIDDLE", "BOTTOM"}, this.hud::getValue);
+            this.hudPosX = new ModeProperty("hud-position-x", 0, new String[] { "LEFT", "MIDDLE", "RIGHT" },
+                    this.hud::getValue);
+            this.hudPosY = new ModeProperty("hud-position-y", 0, new String[] { "TOP", "MIDDLE", "BOTTOM" },
+                    this.hud::getValue);
             this.hudOffX = new IntProperty("hud-offset-x", 2, 0, 255, this.hud::getValue);
             this.hudOffY = new IntProperty("hud-offset-y", 2, 0, 255, this.hud::getValue);
             this.hudScale = new FloatProperty("hud-scale", 1.0F, 0.5F, 1.5F, this.hud::getValue);
             this.hudShadow = new BooleanProperty("hud-shadow", true, this.hud::getValue);
         }
+
         private void resetTracking() {
             this.alertCooldowns.clear();
             this.trackedPearls.clear();
@@ -527,20 +545,25 @@ public class BedwarUtils extends Module {
             this.lastBedScanAttempt = -1L;
             this.lastAutoIncTime = -1L;
         }
+
         private BlockPos getBedPos() {
             return this.bedPos;
         }
+
         private void scheduleBedScan() {
             if (!this.scannedThisGame && this.bedScanAt == -1L) {
                 this.bedScanAt = System.currentTimeMillis() + BED_SCAN_DELAY_MS;
             }
         }
+
         private void scheduleAutomaticBedScan() {
-            if (this.scannedThisGame || mc.theWorld == null || mc.thePlayer == null || this.isBed(this.bedPos)) return;
+            if (this.scannedThisGame || mc.theWorld == null || mc.thePlayer == null || this.isBed(this.bedPos))
+                return;
             if (this.bedScanAt == -1L) {
                 this.bedScanAt = System.currentTimeMillis() + BED_SCAN_DELAY_MS;
             }
         }
+
         private void runPendingBedScan() {
             if (this.bedScanAt == -1L || System.currentTimeMillis() < this.bedScanAt) {
                 return;
@@ -568,9 +591,7 @@ public class BedwarUtils extends Module {
                                             this.getName(),
                                             this.bedPos.getX(),
                                             this.bedPos.getY(),
-                                            this.bedPos.getZ()
-                                    )
-                            );
+                                            this.bedPos.getZ()));
                             SoundUtil.playSound("note.pling");
                             return;
                         }
@@ -579,6 +600,7 @@ public class BedwarUtils extends Module {
             }
             this.bedScanAt = System.currentTimeMillis() + BED_RESCAN_DELAY_MS;
         }
+
         private void pruneTrackedPearls() {
             if (mc.theWorld == null) {
                 this.trackedPearls.clear();
@@ -592,6 +614,7 @@ public class BedwarUtils extends Module {
                 }
             }
         }
+
         @EventTarget
         public void onTick(TickEvent event) {
             if (this.isEnabled() && event.getType() == EventType.POST) {
@@ -610,38 +633,42 @@ public class BedwarUtils extends Module {
                         if (!this.trackedPearls.contains(enderPearl)) {
                             this.trackedPearls.add(enderPearl);
                             if (this.alertOnPearl.getValue()) {
-                                ChatUtil.sendFormatted(String.format("%s%s: &fDetected &5Ender Pearl&r &e&l⚠&r", Myau.clientName, this.getName()));
+                                ChatUtil.sendFormatted(String.format("%s%s: &fDetected &5Ender Pearl&r &e&l⚠&r",
+                                        Myau.clientName, this.getName()));
                                 pearl = true;
                             }
-                            if (this.marcoOnPreal.getValue() && this.lastMarcoTime + (long) this.marcoDelay.getValue() * 1000L <= millis) {
+                            if (this.marcoOnPreal.getValue()
+                                    && this.lastMarcoTime + (long) this.marcoDelay.getValue() * 1000L <= millis) {
                                 this.lastMarcoTime = millis;
                                 marco = true;
                             }
                         }
                     }
                 }
-                for (EntityPlayer player : mc.theWorld
-                        .loadedEntityList
+                for (EntityPlayer player : mc.theWorld.loadedEntityList
                         .stream()
                         .filter(entity -> entity instanceof EntityPlayer)
                         .map(entity -> (EntityPlayer) entity)
-                        .filter(entityPlayer -> !TeamUtil.isBot(entityPlayer) && !this.whitelistedPlayers.contains(entityPlayer.getName()))
+                        .filter(entityPlayer -> !TeamUtil.isBot(entityPlayer)
+                                && !this.whitelistedPlayers.contains(entityPlayer.getName()))
                         .collect(Collectors.toList())) {
                     if (TeamUtil.isSameTeam(player)) {
                         this.whitelistedPlayers.add(player.getName());
                     } else {
-                        double distance = player.getDistance((double) this.bedPos.getX() + 0.5, (double) this.bedPos.getY() + 0.5, (double) this.bedPos.getZ() + 0.5);
+                        double distance = player.getDistance((double) this.bedPos.getX() + 0.5,
+                                (double) this.bedPos.getY() + 0.5, (double) this.bedPos.getZ() + 0.5);
                         String name = player.getName();
                         String text = player.getDisplayName().getFormattedText();
                         ItemStack item = player.getHeldItem();
                         boolean isPearl = item != null && item.getItem() instanceof ItemEnderPearl;
                         if (this.alerts.getValue() && distance < (double) this.alertRange.getValue()) {
                             Long cooldown = this.alertCooldowns.get(name);
-                            if (cooldown == null || cooldown + (long) this.alertFrequency.getValue() * 1000L <= millis) {
+                            if (cooldown == null
+                                    || cooldown + (long) this.alertFrequency.getValue() * 1000L <= millis) {
                                 this.alertCooldowns.put(name, millis);
                                 ChatUtil.sendFormatted(
-                                        String.format("%s%s: %s&r &fis %d blocks away from your bed &e&l⚠&r", Myau.clientName, this.getName(), text, (int) distance + 1)
-                                );
+                                        String.format("%s%s: %s&r &fis %d blocks away from your bed &e&l⚠&r",
+                                                Myau.clientName, this.getName(), text, (int) distance + 1));
                                 pearl = true;
                             }
                             if (this.autoInc.getValue() && this.autoIncPlayers.add(name.toLowerCase())) {
@@ -650,18 +677,17 @@ public class BedwarUtils extends Module {
                         }
                         if (this.alertOnPearl.getValue() && isPearl) {
                             Long cooldown = this.alertCooldowns.get(name);
-                            if (cooldown == null || cooldown + (long) this.alertFrequency.getValue() * 1000L <= millis) {
+                            if (cooldown == null
+                                    || cooldown + (long) this.alertFrequency.getValue() * 1000L <= millis) {
                                 this.alertCooldowns.put(name, millis);
                                 ChatUtil.sendFormatted(
-                                        String.format("%s%s: %s&r &fhas &5Ender Pearl&r &e&l⚠&r", Myau.clientName, this.getName(), text)
-                                );
+                                        String.format("%s%s: %s&r &fhas &5Ender Pearl&r &e&l⚠&r", Myau.clientName,
+                                                this.getName(), text));
                                 pearl = true;
                             }
                         }
-                        if ((
-                                this.marco.getValue() && distance < (double) this.marcoRange.getValue()
-                                        || this.marcoOnPreal.getValue() && isPearl
-                        )
+                        if ((this.marco.getValue() && distance < (double) this.marcoRange.getValue()
+                                || this.marcoOnPreal.getValue() && isPearl)
                                 && this.lastMarcoTime + (long) this.marcoDelay.getValue() * 1000L <= millis) {
                             this.lastMarcoTime = millis;
                             marco = true;
@@ -677,9 +703,7 @@ public class BedwarUtils extends Module {
                                     ChatColors.formatColor("%s%s: &fRunning &6%s&r"),
                                     ChatColors.formatColor(Myau.clientName),
                                     this.getName(),
-                                    this.marcoText.getValue()
-                            )
-                    );
+                                    this.marcoText.getValue()));
                     ChatUtil.sendMessage(this.marcoText.getValue());
                 }
             }
@@ -692,14 +716,22 @@ public class BedwarUtils extends Module {
 
         private String getTeamName(EntityPlayer player) {
             String formatted = player.getDisplayName().getFormattedText().toLowerCase();
-            if (formatted.contains("§c") || formatted.contains("red")) return "red";
-            if (formatted.contains("§e") || formatted.contains("yellow")) return "yellow";
-            if (formatted.contains("§a") || formatted.contains("green")) return "green";
-            if (formatted.contains("§9") || formatted.contains("blue")) return "blue";
-            if (formatted.contains("§b") || formatted.contains("aqua")) return "aqua";
-            if (formatted.contains("§f") || formatted.contains("white")) return "white";
-            if (formatted.contains("§d") || formatted.contains("pink")) return "pink";
-            if (formatted.contains("§7") || formatted.contains("gray") || formatted.contains("grey")) return "gray";
+            if (formatted.contains("§c") || formatted.contains("red"))
+                return "red";
+            if (formatted.contains("§e") || formatted.contains("yellow"))
+                return "yellow";
+            if (formatted.contains("§a") || formatted.contains("green"))
+                return "green";
+            if (formatted.contains("§9") || formatted.contains("blue"))
+                return "blue";
+            if (formatted.contains("§b") || formatted.contains("aqua"))
+                return "aqua";
+            if (formatted.contains("§f") || formatted.contains("white"))
+                return "white";
+            if (formatted.contains("§d") || formatted.contains("pink"))
+                return "pink";
+            if (formatted.contains("§7") || formatted.contains("gray") || formatted.contains("grey"))
+                return "gray";
             return "";
         }
 
@@ -720,9 +752,9 @@ public class BedwarUtils extends Module {
                                 String.format(
                                         "&fBed: %s%s",
                                         !hasBed ? "&cfalse&r" : "&atrue&r",
-                                        !hasBed ? "" : String.format(" &7| &fDistance: &r%d%s", distanceSq, distanceSq >= 128 ? " &c&l⚠&r" : "")
-                                )
-                        );
+                                        !hasBed ? ""
+                                                : String.format(" &7| &fDistance: &r%d%s", distanceSq,
+                                                        distanceSq >= 128 ? " &c&l⚠&r" : "")));
                         ScaledResolution scaledResolution = new ScaledResolution(mc);
                         float width = (float) mc.fontRendererObj.getStringWidth(text);
                         float height = (float) mc.fontRendererObj.FONT_HEIGHT - 1.0F;
@@ -732,7 +764,8 @@ public class BedwarUtils extends Module {
                                 scale++;
                                 break;
                             case 1:
-                                scale += (float) scaledResolution.getScaledWidth() / this.hudScale.getValue() / 2.0F - width / 2.0F;
+                                scale += (float) scaledResolution.getScaledWidth() / this.hudScale.getValue() / 2.0F
+                                        - width / 2.0F;
                                 break;
                             case 2:
                                 scale = (scale + 1.0F) * -1.0F;
@@ -744,11 +777,13 @@ public class BedwarUtils extends Module {
                                 offset++;
                                 break;
                             case 1:
-                                offset += (float) scaledResolution.getScaledHeight() / this.hudScale.getValue() / 2.0F - height / 2.0F;
+                                offset += (float) scaledResolution.getScaledHeight() / this.hudScale.getValue() / 2.0F
+                                        - height / 2.0F;
                                 break;
                             case 2:
                                 offset = (offset + 1.0F) * -1.0F;
-                                offset += (float) scaledResolution.getScaledHeight() / this.hudScale.getValue() - height;
+                                offset += (float) scaledResolution.getScaledHeight() / this.hudScale.getValue()
+                                        - height;
                         }
                         GlStateManager.pushMatrix();
                         GlStateManager.scale(this.hudScale.getValue(), this.hudScale.getValue(), 1.0F);
@@ -756,7 +791,8 @@ public class BedwarUtils extends Module {
                         GlStateManager.disableDepth();
                         GlStateManager.enableBlend();
                         GlStateManager.blendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA);
-                        mc.fontRendererObj.drawString(text, 0.0F, 0.0F, this.getHudColor(distanceSq).getRGB(), this.hudShadow.getValue());
+                        mc.fontRendererObj.drawString(text, 0.0F, 0.0F, this.getHudColor(distanceSq).getRGB(),
+                                this.hudShadow.getValue());
                         GlStateManager.disableBlend();
                         GlStateManager.enableDepth();
                         GlStateManager.popMatrix();
@@ -764,6 +800,7 @@ public class BedwarUtils extends Module {
                 }
             }
         }
+
         @EventTarget
         public void onLoadWorld(LoadWorldEvent event) {
             this.waiting = false;
@@ -771,12 +808,14 @@ public class BedwarUtils extends Module {
             this.scannedThisGame = false;
             this.resetTracking();
         }
+
         @EventTarget
         public void onPacket(PacketEvent event) {
             if (this.isEnabled()) {
                 if (event.getPacket() instanceof S02PacketChat) {
                     String msg = ((S02PacketChat) event.getPacket()).getChatComponent().getFormattedText();
-                    if (msg.contains("§e§lProtect your bed and destroy the enemy bed") || msg.contains("§e§lDestroy the enemy bed and then eliminate them")) {
+                    if (msg.contains("§e§lProtect your bed and destroy the enemy bed")
+                            || msg.contains("§e§lDestroy the enemy bed and then eliminate them")) {
                         this.bedScanAt = -1L;
                         this.resetTracking();
                         this.scannedThisGame = false;
@@ -789,6 +828,7 @@ public class BedwarUtils extends Module {
                 }
             }
         }
+
         @Override
         public void onDisabled() {
             this.waiting = false;

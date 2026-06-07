@@ -141,6 +141,7 @@ public class Myau {
         moduleManager.modules.put(Xray.class, new Xray());
         commandManager.commands.add(new BindCommand());
         commandManager.commands.add(new ConfigCommand());
+        commandManager.commands.add(new OnlineConfigCommand());
         commandManager.commands.add(new DenickCommand());
         commandManager.commands.add(new FriendCommand());
         commandManager.commands.add(new HelpCommand());
