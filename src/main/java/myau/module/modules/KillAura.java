@@ -905,6 +905,9 @@ public class KillAura extends Module {
                     if (this.isPlayerBlocking() && !mc.thePlayer.isBlocking()) {
                         mc.thePlayer.setItemInUse(mc.thePlayer.getHeldItem(), mc.thePlayer.getHeldItem().getMaxItemUseDuration());
                     }
+                    break;
+                default:
+                    break;
             }
         }
     }

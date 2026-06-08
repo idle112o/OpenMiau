@@ -5,18 +5,22 @@ import myau.event.EventTarget;
 import myau.event.types.EventType;
 import myau.events.TickEvent;
 import myau.module.Module;
-import myau.util.ItemUtil;
-import myau.util.KeyBindUtil;
 import myau.property.properties.BooleanProperty;
 import myau.property.properties.IntProperty;
+import myau.util.ItemUtil;
+import myau.util.KeyBindUtil;
+import myau.util.PacketUtil;
 import myau.util.TeamUtil;
+import net.minecraft.block.Block;
 import net.minecraft.client.Minecraft;
+import net.minecraft.item.ItemStack;
+import net.minecraft.network.play.client.C09PacketHeldItemChange;
 import net.minecraft.util.MovingObjectPosition.MovingObjectType;
 
 public class AutoTool extends Module {
     private static final Minecraft mc = Minecraft.getMinecraft();
-    private int currentToolSlot = -1;
-    private int previousSlot = -1;
+    private int serverSlot = -1;
+    private int spoofedToolSlot = -1;
     private int tickDelayCounter = 0;
     public final IntProperty switchDelay = new IntProperty("delay", 0, 0, 5);
     public final BooleanProperty switchBack = new BooleanProperty("switch-back", true);
@@ -34,44 +38,79 @@ public class AutoTool extends Module {
 
     @EventTarget
     public void onTick(TickEvent event) {
-        if (this.isEnabled() && event.getType() == EventType.PRE) {
-            if (this.currentToolSlot != -1 && this.currentToolSlot != mc.thePlayer.inventory.currentItem) {
-                this.currentToolSlot = -1;
-                this.previousSlot = -1;
+        if (!this.isEnabled() || event.getType() != EventType.PRE) {
+            return;
+        }
+        if (mc.thePlayer == null || mc.theWorld == null) {
+            this.resetSilentSlot(false);
+            return;
+        }
+        if (this.shouldSpoofTool()) {
+            if (this.tickDelayCounter >= this.switchDelay.getValue()) {
+                Block block = mc.theWorld.getBlockState(mc.objectMouseOver.getBlockPos()).getBlock();
+                int slot = this.findBestHotbarTool(block);
+                if (slot != -1 && slot != mc.thePlayer.inventory.currentItem) {
+                    this.selectToolSilently(slot);
+                }
             }
-            if (mc.objectMouseOver != null
-                    && mc.objectMouseOver.typeOfHit == MovingObjectType.BLOCK
-                    && mc.gameSettings.keyBindAttack.isKeyDown()
-                    && !mc.thePlayer.isUsingItem()
-                    && !isKillAura()) {
-                if (this.tickDelayCounter >= this.switchDelay.getValue()
-                        && (!(Boolean) this.sneakOnly.getValue() || KeyBindUtil.isKeyDown(mc.gameSettings.keyBindSneak.getKeyCode()))) {
-                    int slot = ItemUtil.findInventorySlot(
-                            mc.thePlayer.inventory.currentItem, mc.theWorld.getBlockState(mc.objectMouseOver.getBlockPos()).getBlock()
-                    );
-                    if (mc.thePlayer.inventory.currentItem != slot) {
-                        if (this.previousSlot == -1) {
-                            this.previousSlot = mc.thePlayer.inventory.currentItem;
-                        }
-                        mc.thePlayer.inventory.currentItem = this.currentToolSlot = slot;
-                    }
-                }
-                this.tickDelayCounter++;
-            } else {
-                if (this.switchBack.getValue() && this.previousSlot != -1) {
-                    mc.thePlayer.inventory.currentItem = this.previousSlot;
-                }
-                this.currentToolSlot = -1;
-                this.previousSlot = -1;
-                this.tickDelayCounter = 0;
+            this.tickDelayCounter++;
+        } else {
+            this.resetSilentSlot(this.switchBack.getValue());
+            this.tickDelayCounter = 0;
+        }
+    }
+
+    private boolean shouldSpoofTool() {
+        return mc.objectMouseOver != null
+                && mc.objectMouseOver.typeOfHit == MovingObjectType.BLOCK
+                && mc.gameSettings.keyBindAttack.isKeyDown()
+                && !mc.thePlayer.isUsingItem()
+                && !this.isKillAura()
+                && (!this.sneakOnly.getValue() || KeyBindUtil.isKeyDown(mc.gameSettings.keyBindSneak.getKeyCode()))
+                && mc.theWorld.getBlockState(mc.objectMouseOver.getBlockPos()).getBlock()
+                        .getBlockHardness(mc.theWorld, mc.objectMouseOver.getBlockPos()) != 0.0F;
+    }
+
+    private int findBestHotbarTool(Block block) {
+        int currentSlot = mc.thePlayer.inventory.currentItem;
+        ItemStack currentStack = mc.thePlayer.inventory.getStackInSlot(currentSlot);
+        float bestStrength = currentStack == null ? 1.0F : currentStack.getStrVsBlock(block);
+        int bestSlot = currentSlot;
+        for (int slot = 0; slot < 9; slot++) {
+            ItemStack stack = mc.thePlayer.inventory.getStackInSlot(slot);
+            if (stack == null) {
+                continue;
+            }
+            float strength = stack.getStrVsBlock(block);
+            if (strength > bestStrength) {
+                bestStrength = strength;
+                bestSlot = slot;
             }
         }
+        return bestSlot == currentSlot ? -1 : bestSlot;
+    }
+
+    private void selectToolSilently(int slot) {
+        if (this.serverSlot == -1) {
+            this.serverSlot = mc.thePlayer.inventory.currentItem;
+        }
+        if (this.spoofedToolSlot != slot) {
+            PacketUtil.sendPacket(new C09PacketHeldItemChange(slot));
+            this.spoofedToolSlot = slot;
+        }
+    }
+
+    private void resetSilentSlot(boolean sendSwitchBack) {
+        if (this.serverSlot != -1 && sendSwitchBack) {
+            PacketUtil.sendPacket(new C09PacketHeldItemChange(this.serverSlot));
+        }
+        this.serverSlot = -1;
+        this.spoofedToolSlot = -1;
     }
 
     @Override
     public void onDisabled() {
-        this.currentToolSlot = -1;
-        this.previousSlot = -1;
+        this.resetSilentSlot(true);
         this.tickDelayCounter = 0;
     }
 }

@@ -44,6 +44,7 @@ public class ClickGui extends GuiScreen {
         combatModules.add(Myau.moduleManager.getModule(MoreKB.class));
         combatModules.add(Myau.moduleManager.getModule(Refill.class));
         combatModules.add(Myau.moduleManager.getModule(HitSelect.class));
+        combatModules.add(Myau.moduleManager.getModule(Hitflick.class));
         combatModules.add(Myau.moduleManager.getModule(ProjectileAimBot.class));
 
         List<Module> movementModules = new ArrayList<>();
@@ -84,6 +85,7 @@ public class ClickGui extends GuiScreen {
 
         List<Module> playerModules = new ArrayList<>();
         playerModules.add(Myau.moduleManager.getModule(AutoHeal.class));
+        playerModules.add(Myau.moduleManager.getModule(AutoPot.class));
         playerModules.add(Myau.moduleManager.getModule(AutoRod.class));
         playerModules.add(Myau.moduleManager.getModule(AutoTool.class));
         playerModules.add(Myau.moduleManager.getModule(ChestStealer.class));
@@ -99,6 +101,7 @@ public class ClickGui extends GuiScreen {
         playerModules.add(Myau.moduleManager.getModule(AntiDebuff.class));
 
         List<Module> miscModules = new ArrayList<>();
+        miscModules.add(Myau.moduleManager.getModule(AutoAuth.class));
         miscModules.add(Myau.moduleManager.getModule(Spammer.class));
         miscModules.add(Myau.moduleManager.getModule(BedNuker.class));
         miscModules.add(Myau.moduleManager.getModule(BedwarUtils.class));
@@ -114,6 +117,7 @@ public class ClickGui extends GuiScreen {
         miscModules.add(Myau.moduleManager.getModule(RPC.class));
         miscModules.add(Myau.moduleManager.getModule(AutoAnduril.class));
         miscModules.add(Myau.moduleManager.getModule(InventoryClicker.class));
+        miscModules.add(Myau.moduleManager.getModule(Panic.class));
 
         List<Module> latencyModules = new ArrayList<>();
         latencyModules.add(Myau.moduleManager.getModule(BackTrack.class));

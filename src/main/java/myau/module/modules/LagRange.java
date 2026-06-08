@@ -144,6 +144,9 @@ public class LagRange extends Module {
                         this.lastPosition = this.currentPosition;
                     }
                     this.currentPosition = savedPosition;
+                    break;
+                default:
+                    break;
             }
         }
     }

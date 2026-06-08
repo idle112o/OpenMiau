@@ -120,6 +120,9 @@ public class NoSlow extends Module {
                         if (entityHit instanceof EntityLivingBase && TeamUtil.isShop((EntityLivingBase) entityHit)) {
                             return;
                         }
+                        break;
+                    default:
+                        break;
                 }
             }
             if (this.isFloatMode() && !Myau.floatManager.isPredicted() && mc.thePlayer.onGround) {

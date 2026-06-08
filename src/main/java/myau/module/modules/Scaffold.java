@@ -31,7 +31,7 @@ import java.util.Comparator;
 
 public class Scaffold extends Module {
     private static final Minecraft mc = Minecraft.getMinecraft();
-    private static final double[] placeOffsets = new double[]{
+    private static final double[] placeOffsets = new double[] {
             0.03125,
             0.09375,
             0.15625,
@@ -62,18 +62,25 @@ public class Scaffold extends Module {
     private boolean shouldKeepY = false;
     private boolean towering = false;
     private EnumFacing targetFacing = null;
-    public final ModeProperty rotationMode = new ModeProperty("rotations", 2, new String[]{"NONE", "DEFAULT", "BACKWARDS", "SIDEWAYS"});
-    public final ModeProperty moveFix = new ModeProperty("move-fix", 1, new String[]{"NONE", "SILENT"});
-    public final ModeProperty sprintMode = new ModeProperty("sprint", 0, new String[]{"NONE", "VANILLA"});
-    public final BooleanProperty sprintOnGround = new BooleanProperty("sprint-on-ground", true, () -> this.sprintMode.getValue() != 0);
-    public final BooleanProperty sprintOffGround = new BooleanProperty("sprint-off-ground", true, () -> this.sprintMode.getValue() != 0);
+    public final ModeProperty rotationMode = new ModeProperty("rotations", 2,
+            new String[] { "NONE", "DEFAULT", "BACKWARDS", "SIDEWAYS" });
+    public final ModeProperty moveFix = new ModeProperty("move-fix", 1, new String[] { "NONE", "SILENT" });
+    public final ModeProperty sprintMode = new ModeProperty("sprint", 0, new String[] { "NONE", "VANILLA" });
+    public final BooleanProperty sprintOnGround = new BooleanProperty("sprint-on-ground", true,
+            () -> this.sprintMode.getValue() != 0);
+    public final BooleanProperty sprintOffGround = new BooleanProperty("sprint-off-ground", true,
+            () -> this.sprintMode.getValue() != 0);
     public final PercentProperty groundMotion = new PercentProperty("ground-motion", 100);
     public final PercentProperty airMotion = new PercentProperty("air-motion", 100);
     public final PercentProperty speedMotion = new PercentProperty("speed-motion", 100);
-    public final ModeProperty tower = new ModeProperty("tower", 0, new String[]{"NONE", "VANILLA", "EXTRA", "TELLY"});
-    public final ModeProperty keepY = new ModeProperty("keep-y", 0, new String[]{"NONE", "VANILLA", "EXTRA", "TELLY"});
-    public final BooleanProperty keepYonPress = new BooleanProperty("keep-y-on-press", false, () -> this.keepY.getValue() != 0);
-    public final BooleanProperty disableWhileJumpActive = new BooleanProperty("no-keep-y-on-jump-potion", false, () -> this.keepY.getValue() != 0);
+    public final ModeProperty tower = new ModeProperty("tower", 0,
+            new String[] { "NONE", "VANILLA", "EXTRA", "TELLY" });
+    public final ModeProperty keepY = new ModeProperty("keep-y", 0,
+            new String[] { "NONE", "VANILLA", "EXTRA", "TELLY" });
+    public final BooleanProperty keepYonPress = new BooleanProperty("keep-y-on-press", false,
+            () -> this.keepY.getValue() != 0);
+    public final BooleanProperty disableWhileJumpActive = new BooleanProperty("no-keep-y-on-jump-potion", false,
+            () -> this.keepY.getValue() != 0);
     public final BooleanProperty multiplace = new BooleanProperty("multi-place", true);
     public final BooleanProperty safeWalk = new BooleanProperty("safe-walk", true);
     public final BooleanProperty swing = new BooleanProperty("swing", true);
@@ -112,7 +119,8 @@ public class Scaffold extends Module {
             if (facing != EnumFacing.DOWN) {
                 BlockPos pos = blockPos1.offset(facing);
                 if (pos.getY() <= blockPos3.getY()) {
-                    double distance = pos.distanceSqToCenter((double) blockPos3.getX() + 0.5, (double) blockPos3.getY() + 0.5, (double) blockPos3.getZ() + 0.5);
+                    double distance = pos.distanceSqToCenter((double) blockPos3.getX() + 0.5,
+                            (double) blockPos3.getY() + 0.5, (double) blockPos3.getZ() + 0.5);
                     if (enumFacing == null || distance < offset || distance == offset && facing == EnumFacing.UP) {
                         offset = distance;
                         enumFacing = facing;
@@ -128,8 +136,7 @@ public class Scaffold extends Module {
         BlockPos targetPos = new BlockPos(
                 MathHelper.floor_double(mc.thePlayer.posX),
                 (this.stage != 0 && !this.shouldKeepY ? Math.min(startY, this.startY) : startY) - 1,
-                MathHelper.floor_double(mc.thePlayer.posZ)
-        );
+                MathHelper.floor_double(mc.thePlayer.posZ));
         if (!BlockUtil.isReplaceable(targetPos)) {
             return null;
         } else {
@@ -140,10 +147,9 @@ public class Scaffold extends Module {
                         BlockPos pos = targetPos.add(x, y, z);
                         if (!BlockUtil.isReplaceable(pos)
                                 && !BlockUtil.isInteractable(pos)
-                                && !(
-                                mc.thePlayer.getDistance((double) pos.getX() + 0.5, (double) pos.getY() + 0.5, (double) pos.getZ() + 0.5)
-                                        > (double) mc.playerController.getBlockReachDistance()
-                        )
+                                && !(mc.thePlayer.getDistance((double) pos.getX() + 0.5, (double) pos.getY() + 0.5,
+                                        (double) pos.getZ()
+                                                + 0.5) > (double) mc.playerController.getBlockReachDistance())
                                 && (this.stage == 0 || this.shouldKeepY || pos.getY() < this.startY)) {
                             for (EnumFacing facing : EnumFacing.VALUES) {
                                 if (facing != EnumFacing.DOWN) {
@@ -162,9 +168,8 @@ public class Scaffold extends Module {
             } else {
                 positions.sort(
                         Comparator.comparingDouble(
-                                o -> o.distanceSqToCenter((double) targetPos.getX() + 0.5, (double) targetPos.getY() + 0.5, (double) targetPos.getZ() + 0.5)
-                        )
-                );
+                                o -> o.distanceSqToCenter((double) targetPos.getX() + 0.5,
+                                        (double) targetPos.getY() + 0.5, (double) targetPos.getZ() + 0.5)));
                 BlockPos blockPos = positions.get(0);
                 EnumFacing facing = this.getBestFacing(blockPos, targetPos);
                 return facing == null ? null : new BlockData(blockPos, facing);
@@ -174,7 +179,8 @@ public class Scaffold extends Module {
 
     private void place(BlockPos blockPos, EnumFacing enumFacing, Vec3 vec3) {
         if (ItemUtil.isHoldingBlock() && this.blockCount > 0) {
-            if (mc.playerController.onPlayerRightClick(mc.thePlayer, mc.theWorld, mc.thePlayer.inventory.getCurrentItem(), blockPos, enumFacing, vec3)) {
+            if (mc.playerController.onPlayerRightClick(mc.thePlayer, mc.theWorld,
+                    mc.thePlayer.inventory.getCurrentItem(), blockPos, enumFacing, vec3)) {
                 if (mc.playerController.getCurrentGameType() != GameType.CREATIVE) {
                     this.blockCount--;
                 }
@@ -227,8 +233,7 @@ public class Scaffold extends Module {
 
     private float getCurrentYaw() {
         return MoveUtil.adjustYaw(
-                mc.thePlayer.rotationYaw, (float) MoveUtil.getForwardValue(), (float) MoveUtil.getLeftValue()
-        );
+                mc.thePlayer.rotationYaw, (float) MoveUtil.getForwardValue(), (float) MoveUtil.getLeftValue());
     }
 
     private boolean isDiagonal(float yaw) {
@@ -301,7 +306,9 @@ public class Scaffold extends Module {
                 float yawDiffTo180 = RotationUtil.wrapAngleDiff(currentYaw - 180.0F, event.getYaw());
                 float diagonalYaw = this.isDiagonal(currentYaw)
                         ? yawDiffTo180
-                        : RotationUtil.wrapAngleDiff(currentYaw - 135.0F * ((currentYaw + 180.0F) % 90.0F < 45.0F ? 1.0F : -1.0F), event.getYaw());
+                        : RotationUtil.wrapAngleDiff(
+                                currentYaw - 135.0F * ((currentYaw + 180.0F) % 90.0F < 45.0F ? 1.0F : -1.0F),
+                                event.getYaw());
                 if (!this.canRotate) {
                     switch (this.rotationMode.getValue()) {
                         case 1:
@@ -337,22 +344,22 @@ public class Scaffold extends Module {
                     double[] z = placeOffsets;
                     switch (blockData.facing()) {
                         case NORTH:
-                            z = new double[]{0.0};
+                            z = new double[] { 0.0 };
                             break;
                         case EAST:
-                            x = new double[]{1.0};
+                            x = new double[] { 1.0 };
                             break;
                         case SOUTH:
-                            z = new double[]{1.0};
+                            z = new double[] { 1.0 };
                             break;
                         case WEST:
-                            x = new double[]{0.0};
+                            x = new double[] { 0.0 };
                             break;
                         case DOWN:
-                            y = new double[]{0.0};
+                            y = new double[] { 0.0 };
                             break;
                         case UP:
-                            y = new double[]{1.0};
+                            y = new double[] { 1.0 };
                     }
                     float bestYaw = -180.0F;
                     float bestPitch = 0.0F;
@@ -361,16 +368,19 @@ public class Scaffold extends Module {
                         for (double dy : y) {
                             for (double dz : z) {
                                 double relX = (double) blockData.blockPos().getX() + dx - mc.thePlayer.posX;
-                                double relY = (double) blockData.blockPos().getY() + dy - mc.thePlayer.posY - (double) mc.thePlayer.getEyeHeight();
+                                double relY = (double) blockData.blockPos().getY() + dy - mc.thePlayer.posY
+                                        - (double) mc.thePlayer.getEyeHeight();
                                 double relZ = (double) blockData.blockPos().getZ() + dz - mc.thePlayer.posZ;
                                 float baseYaw = RotationUtil.wrapAngleDiff(this.yaw, event.getYaw());
                                 float[] rotations = RotationUtil.getRotationsTo(relX, relY, relZ, baseYaw, this.pitch);
-                                MovingObjectPosition mop = RotationUtil.rayTrace(rotations[0], rotations[1], mc.playerController.getBlockReachDistance(), 1.0F);
+                                MovingObjectPosition mop = RotationUtil.rayTrace(rotations[0], rotations[1],
+                                        mc.playerController.getBlockReachDistance(), 1.0F);
                                 if (mop != null
                                         && mop.typeOfHit == MovingObjectType.BLOCK
                                         && mop.getBlockPos().equals(blockData.blockPos())
                                         && mop.sideHit == blockData.facing()) {
-                                    float totalDiff = Math.abs(rotations[0] - baseYaw) + Math.abs(rotations[1] - this.pitch);
+                                    float totalDiff = Math.abs(rotations[0] - baseYaw)
+                                            + Math.abs(rotations[1] - this.pitch);
                                     if (bestYaw == -180.0F && bestPitch == 0.0F || totalDiff < bestDiff) {
                                         bestYaw = rotations[0];
                                         bestPitch = rotations[1];
@@ -387,7 +397,8 @@ public class Scaffold extends Module {
                         this.canRotate = true;
                     }
                 }
-                if (this.canRotate && MoveUtil.isForwardPressed() && Math.abs(MathHelper.wrapAngleTo180_float(yawDiffTo180 - this.yaw)) < 90.0F) {
+                if (this.canRotate && MoveUtil.isForwardPressed()
+                        && Math.abs(MathHelper.wrapAngleTo180_float(yawDiffTo180 - this.yaw)) < 90.0F) {
                     switch (this.rotationMode.getValue()) {
                         case 2:
                             this.yaw = RotationUtil.quantizeAngle(yawDiffTo180);
@@ -399,9 +410,11 @@ public class Scaffold extends Module {
                 if (this.rotationMode.getValue() != 0) {
                     float targetYaw = this.yaw;
                     float targetPitch = this.pitch;
-                    if (this.towering && (mc.thePlayer.motionY > 0.0 || mc.thePlayer.posY > (double) (this.startY + 1))) {
+                    if (this.towering
+                            && (mc.thePlayer.motionY > 0.0 || mc.thePlayer.posY > (double) (this.startY + 1))) {
                         float yawDiff = MathHelper.wrapAngleTo180_float(this.yaw - event.getYaw());
-                        float tolerance = this.rotationTick >= 2 ? RandomUtil.nextFloat(90.0F, 95.0F) : RandomUtil.nextFloat(30.0F, 35.0F);
+                        float tolerance = this.rotationTick >= 2 ? RandomUtil.nextFloat(90.0F, 95.0F)
+                                : RandomUtil.nextFloat(30.0F, 35.0F);
                         if (Math.abs(yawDiff) > tolerance) {
                             float clampedYaw = RotationUtil.clampAngle(yawDiff, tolerance);
                             targetYaw = RotationUtil.quantizeAngle(event.getYaw() + clampedYaw);
@@ -410,7 +423,8 @@ public class Scaffold extends Module {
                     }
                     if (this.isTowering()) {
                         float yawDelta = MathHelper.wrapAngleTo180_float(mc.thePlayer.rotationYaw - event.getYaw());
-                        targetYaw = RotationUtil.quantizeAngle(event.getYaw() + yawDelta * RandomUtil.nextFloat(0.98F, 0.99F));
+                        targetYaw = RotationUtil
+                                .quantizeAngle(event.getYaw() + yawDelta * RandomUtil.nextFloat(0.98F, 0.99F));
                         targetPitch = RotationUtil.quantizeAngle(RandomUtil.nextFloat(30.0F, 80.0F));
                         this.rotationTick = 3;
                         this.towering = true;
@@ -428,7 +442,8 @@ public class Scaffold extends Module {
                             if (blockData == null) {
                                 break;
                             }
-                            MovingObjectPosition mop = RotationUtil.rayTrace(this.yaw, this.pitch, mc.playerController.getBlockReachDistance(), 1.0F);
+                            MovingObjectPosition mop = RotationUtil.rayTrace(this.yaw, this.pitch,
+                                    mc.playerController.getBlockReachDistance(), 1.0F);
                             if (mop != null
                                     && mop.typeOfHit == MovingObjectType.BLOCK
                                     && mop.getBlockPos().equals(blockData.blockPos())
@@ -439,11 +454,14 @@ public class Scaffold extends Module {
                                 double dx = hitVec.xCoord - mc.thePlayer.posX;
                                 double dy = hitVec.yCoord - mc.thePlayer.posY - (double) mc.thePlayer.getEyeHeight();
                                 double dz = hitVec.zCoord - mc.thePlayer.posZ;
-                                float[] rotations = RotationUtil.getRotationsTo(dx, dy, dz, event.getYaw(), event.getPitch());
-                                if (!(Math.abs(rotations[0] - this.yaw) < 120.0F) || !(Math.abs(rotations[1] - this.pitch) < 60.0F)) {
+                                float[] rotations = RotationUtil.getRotationsTo(dx, dy, dz, event.getYaw(),
+                                        event.getPitch());
+                                if (!(Math.abs(rotations[0] - this.yaw) < 120.0F)
+                                        || !(Math.abs(rotations[1] - this.pitch) < 60.0F)) {
                                     break;
                                 }
-                                mop = RotationUtil.rayTrace(rotations[0], rotations[1], mc.playerController.getBlockReachDistance(), 1.0F);
+                                mop = RotationUtil.rayTrace(rotations[0], rotations[1],
+                                        mc.playerController.getBlockReachDistance(), 1.0F);
                                 if (mop == null
                                         || mop.typeOfHit != MovingObjectType.BLOCK
                                         || !mop.getBlockPos().equals(blockData.blockPos())
@@ -471,7 +489,8 @@ public class Scaffold extends Module {
                         this.shouldKeepY = true;
                         blockData = this.getBlockData();
                         if (blockData != null && this.rotationTick <= 0) {
-                            hitVec = BlockUtil.getHitVec(blockData.blockPos(), blockData.facing(), this.yaw, this.pitch);
+                            hitVec = BlockUtil.getHitVec(blockData.blockPos(), blockData.facing(), this.yaw,
+                                    this.pitch);
                             this.place(blockData.blockPos(), blockData.facing(), hitVec);
                         }
                     }
@@ -543,7 +562,8 @@ public class Scaffold extends Module {
                                         MoveUtil.setSpeed(0.0);
                                         event.setForward(0.0F);
                                         event.setStrafe(0.0F);
-                                        EnumFacing facing = this.yawToFacing(MathHelper.wrapAngleTo180_float(this.yaw - 180.0F));
+                                        EnumFacing facing = this
+                                                .yawToFacing(MathHelper.wrapAngleTo180_float(this.yaw - 180.0F));
                                         double distance = this.distanceToEdge(facing);
                                         if (distance > 0.1) {
                                             if (mc.thePlayer.onGround) {
@@ -552,11 +572,16 @@ public class Scaffold extends Module {
                                                 double jitter = RandomUtil.nextDouble(0.02, 0.03);
                                                 AxisAlignedBB nextBox = mc.thePlayer
                                                         .getEntityBoundingBox()
-                                                        .offset((double) directionVec.getX() * (offset - jitter), 0.0, (double) directionVec.getZ() * (offset - jitter));
-                                                if (mc.theWorld.getCollidingBoundingBoxes(mc.thePlayer, nextBox).isEmpty()) {
+                                                        .offset((double) directionVec.getX() * (offset - jitter), 0.0,
+                                                                (double) directionVec.getZ() * (offset - jitter));
+                                                if (mc.theWorld.getCollidingBoundingBoxes(mc.thePlayer, nextBox)
+                                                        .isEmpty()) {
                                                     mc.thePlayer.motionY = -0.0784000015258789;
                                                     mc.thePlayer
-                                                            .setPosition(nextBox.minX + (nextBox.maxX - nextBox.minX) / 2.0, nextBox.minY, nextBox.minZ + (nextBox.maxZ - nextBox.minZ) / 2.0);
+                                                            .setPosition(
+                                                                    nextBox.minX + (nextBox.maxX - nextBox.minX) / 2.0,
+                                                                    nextBox.minY,
+                                                                    nextBox.minZ + (nextBox.maxZ - nextBox.minZ) / 2.0);
                                                 }
                                                 return;
                                             }
@@ -642,8 +667,10 @@ public class Scaffold extends Module {
             float speed = this.getSpeed();
             if (speed != 1.0F) {
                 if (mc.thePlayer.movementInput.moveForward != 0.0F && mc.thePlayer.movementInput.moveStrafe != 0.0F) {
-                    mc.thePlayer.movementInput.moveForward = mc.thePlayer.movementInput.moveForward * (1.0F / (float) Math.sqrt(2.0));
-                    mc.thePlayer.movementInput.moveStrafe = mc.thePlayer.movementInput.moveStrafe * (1.0F / (float) Math.sqrt(2.0));
+                    mc.thePlayer.movementInput.moveForward = mc.thePlayer.movementInput.moveForward
+                            * (1.0F / (float) Math.sqrt(2.0));
+                    mc.thePlayer.movementInput.moveStrafe = mc.thePlayer.movementInput.moveStrafe
+                            * (1.0F / (float) Math.sqrt(2.0));
                 }
                 mc.thePlayer.movementInput.moveForward *= speed;
                 mc.thePlayer.movementInput.moveStrafe *= speed;
@@ -657,7 +684,8 @@ public class Scaffold extends Module {
     @EventTarget
     public void onSafeWalk(SafeWalkEvent event) {
         if (this.isEnabled() && this.safeWalk.getValue()) {
-            if (mc.thePlayer.onGround && mc.thePlayer.motionY <= 0.0 && PlayerUtil.canMove(mc.thePlayer.motionX, mc.thePlayer.motionZ, -1.0)) {
+            if (mc.thePlayer.onGround && mc.thePlayer.motionY <= 0.0
+                    && PlayerUtil.canMove(mc.thePlayer.motionX, mc.thePlayer.motionZ, -1.0)) {
                 event.setSafeWalk(true);
             }
         }
@@ -690,11 +718,12 @@ public class Scaffold extends Module {
                 mc.fontRendererObj
                         .drawString(
                                 String.format("%d block%s left", count, count != 1 ? "s" : ""),
-                                ((float) new ScaledResolution(mc).getScaledWidth() / 2.0F + (float) mc.fontRendererObj.FONT_HEIGHT * 1.5F) / scale,
-                                (float) new ScaledResolution(mc).getScaledHeight() / 2.0F / scale - (float) mc.fontRendererObj.FONT_HEIGHT / 2.0F + 1.0F,
+                                ((float) new ScaledResolution(mc).getScaledWidth() / 2.0F
+                                        + (float) mc.fontRendererObj.FONT_HEIGHT * 1.5F) / scale,
+                                (float) new ScaledResolution(mc).getScaledHeight() / 2.0F / scale
+                                        - (float) mc.fontRendererObj.FONT_HEIGHT / 2.0F + 1.0F,
                                 (count > 0 ? Color.WHITE.getRGB() : new Color(255, 85, 85).getRGB()) | -1090519040,
-                                hud.shadow.getValue()
-                        );
+                                hud.shadow.getValue());
                 GlStateManager.disableBlend();
                 GlStateManager.enableDepth();
                 GlStateManager.popMatrix();

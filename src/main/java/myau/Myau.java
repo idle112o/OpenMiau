@@ -75,7 +75,9 @@ public class Myau {
         moduleManager.modules.put(HackerDetector.class, new HackerDetector());
         moduleManager.modules.put(AutoClicker.class, new AutoClicker());
         moduleManager.modules.put(AutoAnduril.class, new AutoAnduril());
+        moduleManager.modules.put(AutoAuth.class, new AutoAuth());
         moduleManager.modules.put(AutoHeal.class, new AutoHeal());
+        moduleManager.modules.put(AutoPot.class, new AutoPot());
         moduleManager.modules.put(AutoRod.class, new AutoRod());
         moduleManager.modules.put(AutoTool.class, new AutoTool());
         moduleManager.modules.put(AutoBedDef.class, new AutoBedDef());
@@ -98,6 +100,7 @@ public class Myau {
         moduleManager.modules.put(GhostHand.class, new GhostHand());
         moduleManager.modules.put(GuiModule.class, new GuiModule());
         moduleManager.modules.put(HitSelect.class, new HitSelect());
+        moduleManager.modules.put(Hitflick.class, new Hitflick());
         moduleManager.modules.put(HUD.class, new HUD());
         moduleManager.modules.put(MoreKB.class, new MoreKB());
         moduleManager.modules.put(Indicators.class, new Indicators());
@@ -122,6 +125,7 @@ public class Myau {
         moduleManager.modules.put(NoJumpDelay.class, new NoJumpDelay());
         moduleManager.modules.put(NoRotate.class, new NoRotate());
         moduleManager.modules.put(NoSlow.class, new NoSlow());
+        moduleManager.modules.put(Panic.class, new Panic());
         moduleManager.modules.put(ProjectileAimBot.class, new ProjectileAimBot());
         moduleManager.modules.put(Radar.class, new Radar());
         moduleManager.modules.put(Reach.class, new Reach());

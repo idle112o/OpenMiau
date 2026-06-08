@@ -39,7 +39,6 @@ public class Velocity extends Module {
     private int legitSmartJumpCount = 0;
     private int intaveTick = 0;
     private int intaveDamageTick = 0;
-    private long lastAttackTime = 0L;
 
     public final ModeProperty mode = new ModeProperty("mode", 0, new String[]{"VANILLA", "JUMP", "DELAY", "REVERSE", "LEGIT_TEST", "LEGIT_SMART", "GRIM_REDUCE", "INTAVE_REDUCE"});
     public final IntProperty delayTicks = new IntProperty("delay-ticks", 3, 1, 20, () -> this.mode.getValue() == 2);
@@ -288,7 +287,6 @@ public class Velocity extends Module {
         this.legitSmartJumpCount = 0;
         this.intaveTick = 0;
         this.intaveDamageTick = 0;
-        this.lastAttackTime = 0L;
     }
 
     @Override

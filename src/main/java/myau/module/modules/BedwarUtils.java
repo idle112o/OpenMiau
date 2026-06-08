@@ -327,10 +327,6 @@ public class BedwarUtils extends Module {
         }
     }
 
-    private void drawTextLine(String text, float x, float y, int color) {
-        mc.fontRendererObj.drawString(text, x, y, color, this.hudShadow.getValue());
-    }
-
     private void drawBedLine(float x, float y) {
         int white = 0xFFFFFFFF;
         int green = 0xFF55FF55;
@@ -431,37 +427,7 @@ public class BedwarUtils extends Module {
     }
 
     private String getMyauPrefix() {
-        return "§7[§cM§6y§ea§au§7]";
-    }
-
-    private String getHudColorCode() {
-        HUD hud = (HUD) Myau.moduleManager.modules.get(HUD.class);
-        Color color = hud != null ? hud.getColor(System.currentTimeMillis()) : Color.WHITE;
-        return this.nearestChatColor(color);
-    }
-
-    private String nearestChatColor(Color color) {
-        String[] codes = new String[] { "§0", "§1", "§2", "§3", "§4", "§5", "§6", "§7", "§8", "§9", "§a", "§b", "§c",
-                "§d", "§e", "§f" };
-        Color[] colors = new Color[] {
-                new Color(0, 0, 0), new Color(0, 0, 170), new Color(0, 170, 0), new Color(0, 170, 170),
-                new Color(170, 0, 0), new Color(170, 0, 170), new Color(255, 170, 0), new Color(170, 170, 170),
-                new Color(85, 85, 85), new Color(85, 85, 255), new Color(85, 255, 85), new Color(85, 255, 255),
-                new Color(255, 85, 85), new Color(255, 85, 255), new Color(255, 255, 85), new Color(255, 255, 255)
-        };
-        int best = 15;
-        double bestDistance = Double.MAX_VALUE;
-        for (int i = 0; i < colors.length; i++) {
-            double red = color.getRed() - colors[i].getRed();
-            double green = color.getGreen() - colors[i].getGreen();
-            double blue = color.getBlue() - colors[i].getBlue();
-            double distance = red * red + green * green + blue * blue;
-            if (distance < bestDistance) {
-                bestDistance = distance;
-                best = i;
-            }
-        }
-        return codes[best];
+        return ChatColors.formatColor(Myau.clientName).trim();
     }
 
     private class BedTracker extends Module {
@@ -551,18 +517,22 @@ public class BedwarUtils extends Module {
                     () -> BedwarUtils.this.bedTracker.getValue() && this.alerts.getValue());
             this.alertOnPearl = new BooleanProperty("alerts-on-pearl", true, BedwarUtils.this.bedTracker::getValue);
             this.alertSound = new ModeProperty("alerts-sound", 1, new String[] { "NONE", "MEOW", "ANVIL" },
-                    () -> BedwarUtils.this.bedTracker.getValue() && (this.alerts.getValue() || this.alertOnPearl.getValue()));
+                    () -> BedwarUtils.this.bedTracker.getValue()
+                            && (this.alerts.getValue() || this.alertOnPearl.getValue()));
             this.alertFrequency = new IntProperty("alerts-frequency", 5, 1, 30,
-                    () -> BedwarUtils.this.bedTracker.getValue() && (this.alerts.getValue() || this.alertOnPearl.getValue()));
+                    () -> BedwarUtils.this.bedTracker.getValue()
+                            && (this.alerts.getValue() || this.alertOnPearl.getValue()));
             this.autoInc = new BooleanProperty("auto-inc", false, BedwarUtils.this.bedTracker::getValue);
             this.marco = new BooleanProperty("macro", false, BedwarUtils.this.bedTracker::getValue);
             this.marcoRange = new IntProperty("macro-range", 24, 8, 128,
                     () -> BedwarUtils.this.bedTracker.getValue() && this.marco.getValue());
             this.marcoOnPreal = new BooleanProperty("macro-on-pearl", false, BedwarUtils.this.bedTracker::getValue);
             this.marcoText = new TextProperty("macro-text", "/lobby",
-                    () -> BedwarUtils.this.bedTracker.getValue() && (this.marco.getValue() || this.marcoOnPreal.getValue()));
+                    () -> BedwarUtils.this.bedTracker.getValue()
+                            && (this.marco.getValue() || this.marcoOnPreal.getValue()));
             this.marcoDelay = new IntProperty("macro-delay", 1, 1, 10,
-                    () -> BedwarUtils.this.bedTracker.getValue() && (this.marco.getValue() || this.marcoOnPreal.getValue()));
+                    () -> BedwarUtils.this.bedTracker.getValue()
+                            && (this.marco.getValue() || this.marcoOnPreal.getValue()));
             this.hud = new BooleanProperty("hud", true, BedwarUtils.this.bedTracker::getValue);
             this.hudPosX = new ModeProperty("hud-position-x", 0, new String[] { "LEFT", "MIDDLE", "RIGHT" },
                     () -> BedwarUtils.this.bedTracker.getValue() && this.hud.getValue());

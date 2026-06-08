@@ -111,6 +111,9 @@ public class LongJump extends Module {
                         mc.thePlayer.inventory.currentItem = this.savedHotbarSlot;
                         this.savedHotbarSlot = -1;
                     }
+                    break;
+                default:
+                    break;
             }
         }
     }

@@ -41,6 +41,9 @@ public class Sprint extends Module {
                     break;
                 case POST:
                     this.wasSprinting = mc.thePlayer.isSprinting();
+                    break;
+                default:
+                    break;
             }
         }
     }

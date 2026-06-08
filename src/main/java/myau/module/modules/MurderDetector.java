@@ -1,6 +1,5 @@
 package myau.module.modules;
 
-import myau.Myau;
 import myau.event.EventTarget;
 import myau.events.LoadWorldEvent;
 import myau.events.Render2DEvent;
@@ -163,7 +162,6 @@ public class MurderDetector extends Module {
             return;
         }
 
-        String message = player.getName() + " is Murderer!";
         if (this.chat.getValue()) {
             ChatUtil.sendFormatted("&7[&cMurdererDetector&7] &e" + player.getName() + " &fis Murderer!");
         }

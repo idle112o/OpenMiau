@@ -31,6 +31,7 @@ public class DiscordRichPresence {
     private boolean running;
     private long startTimestamp;
     private long lastUpdate;
+    private long nextStartAttempt;
     private RpcConfig config = new RpcConfig();
 
     public boolean isRunning() {
@@ -41,9 +42,15 @@ public class DiscordRichPresence {
         if (this.running || rpc == null) {
             return;
         }
+        long now = System.currentTimeMillis();
+        if (now < this.nextStartAttempt) {
+            return;
+        }
+        this.nextStartAttempt = now + 5000L;
         this.refreshConfig(rpc);
         String clientId = this.config.clientId.trim();
         if (clientId.isEmpty() || clientId.equals("0") || !this.config.enabled) {
+            this.nextStartAttempt = now + 30000L;
             return;
         }
         try {
@@ -52,8 +59,10 @@ public class DiscordRichPresence {
             this.startTimestamp = Instant.now().getEpochSecond();
             this.lastUpdate = 0L;
             this.write(OP_HANDSHAKE, "{\"v\":1,\"client_id\":\"" + escape(clientId) + "\"}");
+            this.nextStartAttempt = 0L;
             this.update(rpc, true);
         } catch (Throwable ignored) {
+            this.nextStartAttempt = System.currentTimeMillis() + 5000L;
             this.stop();
         }
     }

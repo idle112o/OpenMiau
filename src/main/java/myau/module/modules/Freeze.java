@@ -23,19 +23,17 @@ import net.minecraft.network.play.server.S32PacketConfirmTransaction;
 
 import java.awt.Color;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 public class Freeze extends Module {
     private static final Minecraft mc = Minecraft.getMinecraft();
-    
+
     private final List<Packet<INetHandlerPlayClient>> packets = new ArrayList<>();
     private boolean delaying = false;
     private int timeout = 0;
     private boolean s08 = false;
     private final int color = new Color(209, 1, 1, 255).getRGB();
-    
+
     public final BooleanProperty renderTimer = new BooleanProperty("render-timer", false);
     public final IntProperty maxTimeout = new IntProperty("max-timeout", 300, 50, 600);
 
@@ -73,28 +71,28 @@ public class Freeze extends Module {
                 this.delaying = true;
             }
         }
-        
+
         // Check for damage (entity status packet with hurt animation)
         if (packet instanceof S19PacketEntityStatus) {
             S19PacketEntityStatus s19 = (S19PacketEntityStatus) packet;
-            if (s19.getEntity(mc.theWorld) != null && 
-                s19.getEntity(mc.theWorld).equals(mc.thePlayer) && 
-                s19.getOpCode() == 2) { // OpCode 2 = hurt animation
+            if (s19.getEntity(mc.theWorld) != null &&
+                    s19.getEntity(mc.theWorld).equals(mc.thePlayer) &&
+                    s19.getOpCode() == 2) { // OpCode 2 = hurt animation
                 this.delaying = true;
             }
         }
 
         // Buffer relevant packets when delaying
-        if (this.delaying && (packet instanceof S12PacketEntityVelocity 
-                || packet instanceof S32PacketConfirmTransaction 
+        if (this.delaying && (packet instanceof S12PacketEntityVelocity
+                || packet instanceof S32PacketConfirmTransaction
                 || packet instanceof S08PacketPlayerPosLook)) {
-            
+
             synchronized (this.packets) {
                 @SuppressWarnings("unchecked")
                 Packet<INetHandlerPlayClient> playPacket = (Packet<INetHandlerPlayClient>) packet;
                 this.packets.add(playPacket);
             }
-            
+
             event.setCancelled(true);
         }
     }
@@ -140,24 +138,21 @@ public class Freeze extends Module {
     }
 
     private void renderTimer(int ticks) {
-        int widthOffset = ticks < 10 ? 4 : 
-                         (ticks >= 10 && ticks < 100 ? 7 : 
-                         (ticks >= 100 && ticks < 1000 ? 10 : 13));
-        
+        int widthOffset = ticks < 10 ? 4 : (ticks >= 10 && ticks < 100 ? 7 : (ticks >= 100 && ticks < 1000 ? 10 : 13));
+
         String text = String.valueOf(ticks);
         int width = mc.fontRendererObj.getStringWidth(text);
         ScaledResolution sr = new ScaledResolution(mc);
-        
+
         int screenWidth = sr.getScaledWidth();
         int screenHeight = sr.getScaledHeight();
         float yadd = 8.0f;
-        
+
         mc.fontRendererObj.drawStringWithShadow(
-            text,
-            (float)(screenWidth / 2 - width + widthOffset),
-            (float)(screenHeight / 2 + (int)yadd),
-            this.color
-        );
+                text,
+                (float) (screenWidth / 2 - width + widthOffset),
+                (float) (screenHeight / 2 + (int) yadd),
+                this.color);
     }
 
     private void flush() {
@@ -170,7 +165,7 @@ public class Freeze extends Module {
         synchronized (this.packets) {
             while (!this.packets.isEmpty()) {
                 Packet<INetHandlerPlayClient> packet = this.packets.remove(0);
-                
+
                 try {
                     packet.processPacket(mc.getNetHandler());
                 } catch (Exception e) {
@@ -191,8 +186,8 @@ public class Freeze extends Module {
     @Override
     public String[] getSuffix() {
         if (this.delaying && this.timeout > 0) {
-            return new String[]{String.valueOf(this.timeout)};
+            return new String[] { String.valueOf(this.timeout) };
         }
-        return new String[]{"Ready"};
+        return new String[] { "Ready" };
     }
 }

@@ -1,6 +1,5 @@
 package myau.module.modules;
 
-import myau.Myau;
 import myau.event.EventTarget;
 import myau.event.types.EventType;
 import myau.events.AttackEvent;
@@ -16,6 +15,7 @@ import myau.property.properties.IntProperty;
 import myau.property.properties.ModeProperty;
 import myau.util.PacketUtil;
 import myau.util.RandomUtil;
+import myau.util.RotationUtil;
 import myau.util.TimerUtil;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.entity.EntityOtherPlayerMP;
@@ -27,6 +27,7 @@ import net.minecraft.entity.EntityLivingBase;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.item.ItemStack;
 import net.minecraft.network.Packet;
+import net.minecraft.network.handshake.client.C00Handshake;
 import net.minecraft.network.play.INetHandlerPlayClient;
 import net.minecraft.network.play.client.C02PacketUseEntity;
 import net.minecraft.network.play.server.S02PacketChat;
@@ -39,6 +40,8 @@ import net.minecraft.network.play.server.S19PacketEntityStatus;
 import net.minecraft.network.play.server.S1CPacketEntityMetadata;
 import net.minecraft.network.play.server.S29PacketSoundEffect;
 import net.minecraft.network.play.server.S40PacketDisconnect;
+import net.minecraft.network.status.client.C00PacketServerQuery;
+import net.minecraft.network.status.server.S01PacketPong;
 import net.minecraft.util.AxisAlignedBB;
 import net.minecraft.util.Vec3;
 import net.minecraft.world.WorldSettings;
@@ -46,41 +49,43 @@ import org.lwjgl.opengl.GL11;
 
 import java.awt.Color;
 import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
 public class BackTrack extends Module {
     private static final Minecraft mc = Minecraft.getMinecraft();
+    private static final String[] NON_DELAYED_SOUND_SUBSTRINGS = new String[]{"game.player.hurt", "game.player.die"};
 
     public final ModeProperty mode = new ModeProperty("mode", 0, new String[]{"PACKET", "FAKE_PLAYER"});
-    public final BooleanProperty cancelClientPacket = new BooleanProperty("cancel-client-packet", false, () -> mode.getValue() == 0);
-    public final BooleanProperty swingCheck = new BooleanProperty("swing-check", false, () -> mode.getValue() == 0);
-    public final ModeProperty activeMode = new ModeProperty("active-mode", 2, new String[]{"HIT", "NOT_HIT", "ALWAYS"}, () -> mode.getValue() == 0);
-    public final BooleanProperty releaseOnVelocity = new BooleanProperty("release-on-velocity", false, () -> mode.getValue() == 0);
-    public final IntProperty minMS = new IntProperty("min-ms", 50, 0, 5000, () -> mode.getValue() == 0);
-    public final IntProperty maxMS = new IntProperty("max-ms", 200, 0, 5000, () -> mode.getValue() == 0);
-    public final ModeProperty espMode = new ModeProperty("esp", 2, new String[]{"NONE", "BOX", "FILLED", "MODEL", "WIREFRAME"});
-    public final ColorProperty espColor = new ColorProperty("color", 0xFFFFFFFF);
+    public final IntProperty nextBacktrackDelay = new IntProperty("next-backtrack-delay", 0, 0, 2000, () -> mode.getValue() == 0);
+    public final IntProperty minMS = new IntProperty("min-ms", 80, 0, 2000, () -> mode.getValue() == 0);
+    public final IntProperty maxMS = new IntProperty("max-ms", 80, 0, 2000, () -> mode.getValue() == 0);
+    public final ModeProperty style = new ModeProperty("style", 1, new String[]{"PULSE", "SMOOTH"}, () -> mode.getValue() == 0);
+    public final FloatProperty minDistance = new FloatProperty("min-distance", 2.0F, 0.0F, 6.0F, () -> mode.getValue() == 0);
+    public final FloatProperty maxDistance = new FloatProperty("max-distance", 3.0F, 0.0F, 6.0F, () -> mode.getValue() == 0);
+    public final BooleanProperty smart = new BooleanProperty("smart", true, () -> mode.getValue() == 0);
+    public final ModeProperty espMode = new ModeProperty("esp", 1, new String[]{"NONE", "BOX", "MODEL", "WIREFRAME"}, () -> mode.getValue() == 0);
+    public final FloatProperty wireframeWidth = new FloatProperty("wireframe-width", 1.0F, 0.5F, 5.0F, () -> mode.getValue() == 0 && espMode.getValue() == 3);
+    public final ColorProperty espColor = new ColorProperty("color", 0xFF00FF00);
     public final IntProperty fakePlayerPulseDelay = new IntProperty("fake-player-pulse-delay", 200, 50, 500, () -> mode.getValue() == 1);
     public final IntProperty fakePlayerIntavePackets = new IntProperty("fake-player-intave-packets", 5, 1, 30, () -> mode.getValue() == 1);
 
     private final Queue<QueuedPacket> packetQueue = new ConcurrentLinkedQueue<>();
     private final Queue<TimedPosition> positions = new ConcurrentLinkedQueue<>();
-    private final List<Packet<?>> skipPackets = new ArrayList<>();
-    private final TimerUtil cycleTimer = new TimerUtil();
+    private final TimerUtil globalTimer = new TimerUtil();
+    private final TimerUtil fakePulseTimer = new TimerUtil();
 
-    private static final int MAX_POSITIONS_SIZE = 100;
-    private static final String[] NON_DELAYED_SOUND_SUBSTRINGS = new String[]{"game.player.hurt", "game.player.die"};
-
-    private Vec3 realPosition = zeroVec();
-    private EntityPlayer target;
-    private int currentLatency;
+    private EntityLivingBase target;
     private boolean shouldRender;
+    private boolean ignoreWholeTick;
+    private long delayForNextBacktrack;
+    private int modernDelay;
+    private boolean delayChanged;
     private EntityOtherPlayerMP fakePlayer;
     private EntityLivingBase currentTarget;
     private boolean fakeShown;
-    private final TimerUtil fakePulseTimer = new TimerUtil();
 
     public BackTrack() {
         super("BackTrack", false);
@@ -88,59 +93,65 @@ public class BackTrack extends Module {
 
     @Override
     public void onEnabled() {
-        clear(false, true, false, true);
-        currentLatency = randomLatency();
+        reset();
+        modernDelay = randomLatency();
+        delayChanged = false;
     }
 
     @Override
     public void onDisabled() {
-        clear(true, false, false, true);
+        clearPackets(true, true);
+        positions.clear();
         removeFakePlayer();
+        reset();
     }
 
     @EventTarget
     public void onLoadWorld(LoadWorldEvent event) {
-        clear(false, true, false, true);
+        clearPackets(false, true);
+        positions.clear();
         removeFakePlayer();
+        reset();
     }
 
     @EventTarget
     public void onTick(TickEvent event) {
         if (!this.isEnabled() || event.getType() != EventType.PRE) return;
-        if (mc.thePlayer == null || mc.theWorld == null || mc.thePlayer.ticksExisted <= 10) {
-            clear(false, true, false, true);
+        if (mc.thePlayer == null || mc.theWorld == null || mc.thePlayer.ticksExisted <= 20) {
+            clearPackets(false, true);
+            reset();
             removeFakePlayer();
             return;
         }
-
         if (mode.getValue() == 1) {
             updateFakePlayer();
             return;
         }
-
-        updateMoonLightPacketMode();
+        updatePacketMode();
     }
 
     @EventTarget
     public void onPacket(PacketEvent event) {
-        if (!this.isEnabled() || mode.getValue() != 0 || event.getType() != EventType.RECEIVE || event.isCancelled()) return;
-        if (mc.thePlayer == null || mc.theWorld == null || mc.thePlayer.ticksExisted <= 10) {
-            clear(false, true, false, true);
+        if (!this.isEnabled() || event.isCancelled()) return;
+        if (mode.getValue() != 0 || event.getType() != EventType.RECEIVE) return;
+        if (mc.thePlayer == null || mc.theWorld == null || mc.thePlayer.ticksExisted <= 20) {
+            clearPackets(false, true);
+            reset();
             return;
         }
 
         Packet<?> packet = event.getPacket();
-
-        if (target == null) return;
+        if (isIgnoredPacket(packet)) return;
         if (isFlushPacket(packet)) {
-            clear(false, false, false, true);
+            clearPackets(true, true);
+            reset();
             return;
         }
+        if (packetQueue.isEmpty() && !shouldBacktrack()) return;
 
-        updateRealPosition(packet);
-        if (cancelClientPacket.getValue() && shouldMoonLightBacktrack()) {
-            event.setCancelled(true);
-        }
+        trackPosition(packet);
+        event.setCancelled(true);
+        packetQueue.offer(new QueuedPacket(packet, System.currentTimeMillis()));
     }
 
     @EventTarget
@@ -150,63 +161,130 @@ public class BackTrack extends Module {
             handleFakePlayerAttack(event);
             return;
         }
-
-        if (!(event.getTarget() instanceof EntityPlayer)) return;
-        EntityPlayer attacked = (EntityPlayer) event.getTarget();
-        if (attacked == target) return;
-
-        clear(false, false, false, true);
+        if (!(event.getTarget() instanceof EntityLivingBase)) return;
+        EntityLivingBase attacked = (EntityLivingBase) event.getTarget();
+        if (target != attacked) {
+            clearPackets(true, true);
+            reset();
+        }
         target = attacked;
-        realPosition = attacked.getPositionVector();
-        currentLatency = randomLatency();
     }
 
     @EventTarget
     public void onRender3D(Render3DEvent event) {
-        if (!this.isEnabled() || mode.getValue() != 0 || !shouldRender || target == null || realPosition == null || target.isDead || currentLatency <= 0) return;
+        if (!this.isEnabled() || mode.getValue() != 0 || !shouldBacktrack() || !shouldRender || target == null) return;
         if (espMode.getValue() == 0) return;
+        TimedPosition renderPos = getLatestPosition();
+        if (renderPos == null) return;
 
+        double x = renderPos.position.xCoord - mc.getRenderManager().viewerPosX;
+        double y = renderPos.position.yCoord - mc.getRenderManager().viewerPosY;
+        double z = renderPos.position.zCoord - mc.getRenderManager().viewerPosZ;
         Color color = new Color(espColor.getValue(), true);
-        double x = realPosition.xCoord - mc.getRenderManager().viewerPosX;
-        double y = realPosition.yCoord - mc.getRenderManager().viewerPosY;
-        double z = realPosition.zCoord - mc.getRenderManager().viewerPosZ;
 
-        if (espMode.getValue() == 3) {
-            GlStateManager.pushMatrix();
-            GlStateManager.translate(realPosition.xCoord - target.posX, realPosition.yCoord - target.posY, realPosition.zCoord - target.posZ);
-            GlStateManager.disableDepth();
-            GlStateManager.enableBlend();
-            mc.getRenderManager().renderEntityStatic(target, event.getPartialTicks(), false);
-            GlStateManager.disableBlend();
-            GlStateManager.enableDepth();
-            GlStateManager.popMatrix();
+        switch (espMode.getValue()) {
+            case 1:
+                drawBacktrackBox(createRenderBox(renderPos.position), color);
+                break;
+            case 2:
+                GlStateManager.pushMatrix();
+                GL11.glPushAttrib(GL11.GL_ALL_ATTRIB_BITS);
+                GlStateManager.color(0.6F, 0.6F, 0.6F, 1.0F);
+                mc.getRenderManager().renderEntityStatic(target, event.getPartialTicks(), true);
+                GL11.glPopAttrib();
+                GlStateManager.popMatrix();
+                break;
+            case 3:
+                GlStateManager.pushMatrix();
+                GL11.glPushAttrib(GL11.GL_ALL_ATTRIB_BITS);
+                GL11.glPolygonMode(GL11.GL_FRONT_AND_BACK, GL11.GL_LINE);
+                GL11.glDisable(GL11.GL_TEXTURE_2D);
+                GL11.glDisable(GL11.GL_LIGHTING);
+                GL11.glDisable(GL11.GL_DEPTH_TEST);
+                GL11.glEnable(GL11.GL_LINE_SMOOTH);
+                GL11.glEnable(GL11.GL_BLEND);
+                GL11.glBlendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA);
+                GL11.glLineWidth(wireframeWidth.getValue());
+                GL11.glTranslated(x - (target.posX - mc.getRenderManager().viewerPosX), y - (target.posY - mc.getRenderManager().viewerPosY), z - (target.posZ - mc.getRenderManager().viewerPosZ));
+                GL11.glColor4f(color.getRed() / 255.0F, color.getGreen() / 255.0F, color.getBlue() / 255.0F, color.getAlpha() / 255.0F);
+                mc.getRenderManager().renderEntityStatic(target, event.getPartialTicks(), true);
+                GL11.glPopAttrib();
+                GlStateManager.popMatrix();
+                break;
+            default:
+                break;
+        }
+    }
+
+    private void updatePacketMode() {
+        if (shouldBacktrack()) {
+            double trueDist = getTrueDistance();
+            double clientDist = mc.thePlayer.getDistanceToEntity(target);
+            if (trueDist <= 6.0D && (!smart.getValue() || trueDist >= clientDist)
+                    && (style.getValue() == 1 || !globalTimer.hasTimeElapsed(modernDelay))) {
+                shouldRender = true;
+                if (isTargetInConfiguredRange(target.getEntityBoundingBox())) {
+                    handlePackets();
+                } else {
+                    handlePacketsRange();
+                }
+            } else {
+                clear();
+            }
+        } else {
+            clear();
+        }
+        updateDelayCooldown();
+        ignoreWholeTick = false;
+    }
+
+    private void handlePackets() {
+        long releaseTime = System.currentTimeMillis() - modernDelay;
+        Iterator<QueuedPacket> packetIterator = packetQueue.iterator();
+        while (packetIterator.hasNext()) {
+            QueuedPacket data = packetIterator.next();
+            if (data.time <= releaseTime) {
+                receiveQueuedPacket(data.packet);
+                packetIterator.remove();
+            }
+        }
+        positions.removeIf(position -> position.time < releaseTime);
+    }
+
+    private void handlePacketsRange() {
+        long time = getRangeTime();
+        if (time == -1L) {
+            clearPackets(true, true);
             return;
         }
-
-        AxisAlignedBB playerBB = target.getEntityBoundingBox();
-        double width = playerBB.maxX - playerBB.minX;
-        double height = playerBB.maxY - playerBB.minY;
-        AxisAlignedBB bb = new AxisAlignedBB(x - width / 2.0, y, z - width / 2.0, x + width / 2.0, y + height, z + width / 2.0);
-
-        GlStateManager.pushMatrix();
-        GL11.glBlendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA);
-        GL11.glDisable(GL11.GL_TEXTURE_2D);
-        GL11.glDisable(GL11.GL_DEPTH_TEST);
-        GL11.glEnable(GL11.GL_BLEND);
-        GL11.glDepthMask(false);
-
-        if (espMode.getValue() == 2) {
-            RenderGlobal.drawOutlinedBoundingBox(bb, color.getRed(), color.getGreen(), color.getBlue(), 80);
+        Iterator<QueuedPacket> packetIterator = packetQueue.iterator();
+        while (packetIterator.hasNext()) {
+            QueuedPacket data = packetIterator.next();
+            if (data.time <= time) {
+                receiveQueuedPacket(data.packet);
+                packetIterator.remove();
+            }
         }
-        GL11.glLineWidth(espMode.getValue() == 4 ? 2.5F : 2.0F);
-        RenderGlobal.drawOutlinedBoundingBox(bb, color.getRed(), color.getGreen(), color.getBlue(), color.getAlpha());
+        positions.removeIf(position -> position.time < time);
+    }
 
-        GL11.glEnable(GL11.GL_TEXTURE_2D);
-        GL11.glEnable(GL11.GL_DEPTH_TEST);
-        GL11.glDisable(GL11.GL_BLEND);
-        GL11.glDepthMask(true);
-        GL11.glLineWidth(1.0F);
-        GlStateManager.popMatrix();
+    private long getRangeTime() {
+        if (target == null) return 0L;
+        long time = 0L;
+        boolean found = false;
+        for (TimedPosition data : positions) {
+            time = data.time;
+            AxisAlignedBB targetBox = target.getEntityBoundingBox().offset(
+                    data.position.xCoord - target.posX,
+                    data.position.yCoord - target.posY,
+                    data.position.zCoord - target.posZ
+            );
+            if (isTargetInConfiguredRange(targetBox)) {
+                found = true;
+                break;
+            }
+        }
+        return found ? time : -1L;
     }
 
     private boolean shouldBacktrack() {
@@ -216,57 +294,28 @@ public class BackTrack extends Module {
                 && mc.thePlayer.getHealth() > 0.0F
                 && (target.getHealth() > 0.0F || Float.isNaN(target.getHealth()))
                 && mc.playerController.getCurrentGameType() != WorldSettings.GameType.SPECTATOR
+                && System.currentTimeMillis() >= delayForNextBacktrack
+                && mc.thePlayer.ticksExisted > 20
                 && !target.isDead
-                && target != mc.thePlayer;
+                && target != mc.thePlayer
+                && !ignoreWholeTick;
     }
 
-    private void updateMoonLightPacketMode() {
-        if (mc.thePlayer.isDead || !shouldBacktrack()) {
-            clear(false, false, false, !shouldBacktrack());
-            return;
+    private boolean isIgnoredPacket(Packet<?> packet) {
+        if (packet instanceof C00Handshake || packet instanceof C00PacketServerQuery || packet instanceof S02PacketChat || packet instanceof S01PacketPong) {
+            return true;
         }
-        if (swingCheck.getValue() && !mc.thePlayer.isSwingInProgress) {
-            disableSpoof();
-            return;
+        if (packet instanceof S29PacketSoundEffect) {
+            String sound = ((S29PacketSoundEffect) packet).getSoundName();
+            for (String ignored : NON_DELAYED_SOUND_SUBSTRINGS) {
+                if (sound.contains(ignored)) return true;
+            }
         }
-        if (shouldMoonLightBacktrack()) {
-            currentLatency = randomLatency();
-            Myau.lagManager.setDelay(Math.max(0, currentLatency / 50));
-            shouldRender = true;
-        } else {
-            disableSpoof();
+        if (packet instanceof S19PacketEntityStatus && target != null) {
+            Entity entity = ((S19PacketEntityStatus) packet).getEntity(mc.theWorld);
+            return entity != null && entity.getEntityId() == target.getEntityId();
         }
-    }
-
-    private boolean shouldMoonLightBacktrack() {
-        if (!shouldBacktrack() || realPosition == null) return false;
-        double realDistance = realPosition.distanceTo(mc.thePlayer.getPositionVector());
-        double clientDistance = target.getDistanceToEntity(mc.thePlayer);
-        return realDistance > clientDistance
-                && realDistance > 2.3D
-                && realDistance < 5.9D
-                && shouldActive(target)
-                && (!releaseOnVelocity.getValue() || mc.thePlayer.hurtTime == 0);
-    }
-
-    private boolean shouldActive(EntityPlayer target) {
-        return activeMode.getValue() == 2
-                || activeMode.getValue() == 0 && target.hurtTime != 0
-                || activeMode.getValue() == 1 && target.hurtTime == 0;
-    }
-
-    private void disableSpoof() {
-        Myau.lagManager.setDelay(0);
-        shouldRender = false;
-    }
-
-    private void updateRealPosition(Packet<?> packet) {
-        Vec3 next = predictPosition(packet, target, realPosition);
-        if (next != null) {
-            realPosition = next;
-        } else if (!shouldMoonLightBacktrack() && target != null) {
-            realPosition = target.getPositionVector();
-        }
+        return false;
     }
 
     private boolean isFlushPacket(Packet<?> packet) {
@@ -278,7 +327,7 @@ public class BackTrack extends Module {
             }
         }
         if (packet instanceof S1CPacketEntityMetadata && target != null && ((S1CPacketEntityMetadata) packet).getEntityId() == target.getEntityId()) {
-            if (isDeadMetadata((S1CPacketEntityMetadata) packet)) return true;
+            return isDeadMetadata((S1CPacketEntityMetadata) packet);
         }
         return false;
     }
@@ -298,47 +347,109 @@ public class BackTrack extends Module {
         return false;
     }
 
-    private Vec3 predictPosition(Packet<?> packet, EntityPlayer entity, Vec3 base) {
-        if (base == null) base = entity.getPositionVector();
+    private void trackPosition(Packet<?> packet) {
+        if (target == null) return;
         if (packet instanceof S14PacketEntity) {
-            S14PacketEntity p = (S14PacketEntity) packet;
-            if (p.getEntity(mc.theWorld) == null || p.getEntity(mc.theWorld).getEntityId() != entity.getEntityId()) return null;
-            return base.addVector(p.func_149062_c() / 32.0D, p.func_149061_d() / 32.0D, p.func_149064_e() / 32.0D);
+            S14PacketEntity movement = (S14PacketEntity) packet;
+            Entity entity = movement.getEntity(mc.theWorld);
+            if (entity != null && entity.getEntityId() == target.getEntityId()) {
+                positions.offer(new TimedPosition(new Vec3(target.posX, target.posY, target.posZ), System.currentTimeMillis()));
+            }
+        } else if (packet instanceof S18PacketEntityTeleport) {
+            S18PacketEntityTeleport teleport = (S18PacketEntityTeleport) packet;
+            if (teleport.getEntityId() == target.getEntityId()) {
+                positions.offer(new TimedPosition(new Vec3(target.posX, target.posY, target.posZ), System.currentTimeMillis()));
+            }
         }
-        if (packet instanceof S18PacketEntityTeleport) {
-            S18PacketEntityTeleport p = (S18PacketEntityTeleport) packet;
-            if (p.getEntityId() != entity.getEntityId()) return null;
-            return new Vec3(p.getX() / 32.0D, p.getY() / 32.0D, p.getZ() / 32.0D);
-        }
-        return null;
     }
 
-    private void releaseAll() {
-        packetQueue.clear();
+    private double getTrueDistance() {
+        TimedPosition latest = getLatestPosition();
+        if (latest == null || mc.thePlayer == null) return target.getDistanceToEntity(mc.thePlayer);
+        return mc.thePlayer.getDistance(latest.position.xCoord, latest.position.yCoord, latest.position.zCoord);
     }
 
-    private void clear(boolean handlePackets, boolean clearOnly, boolean applyCooldown, boolean clearTarget) {
-        if (handlePackets && !clearOnly) {
-            releaseAll();
-        } else if (clearOnly) {
-            packetQueue.clear();
+    private boolean isTargetInConfiguredRange(AxisAlignedBB box) {
+        double distance = RotationUtil.distanceToBox(box);
+        float min = Math.min(minDistance.getValue(), maxDistance.getValue());
+        float max = Math.max(minDistance.getValue(), maxDistance.getValue());
+        return distance >= min && distance <= max;
+    }
+
+    private AxisAlignedBB createRenderBox(Vec3 position) {
+        float border = target.getCollisionBorderSize();
+        AxisAlignedBB box = target.getEntityBoundingBox().expand(border, border, border);
+        return box.offset(
+                position.xCoord - target.posX - mc.getRenderManager().viewerPosX,
+                position.yCoord - target.posY - mc.getRenderManager().viewerPosY,
+                position.zCoord - target.posZ - mc.getRenderManager().viewerPosZ
+        );
+    }
+
+    private TimedPosition getLatestPosition() {
+        TimedPosition latest = null;
+        for (TimedPosition position : positions) {
+            latest = position;
+        }
+        if (latest == null && target != null) {
+            latest = new TimedPosition(new Vec3(target.posX, target.posY, target.posZ), System.currentTimeMillis());
+        }
+        return latest;
+    }
+
+    private void drawBacktrackBox(AxisAlignedBB box, Color color) {
+        GlStateManager.pushMatrix();
+        GL11.glBlendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA);
+        GL11.glDisable(GL11.GL_TEXTURE_2D);
+        GL11.glDisable(GL11.GL_DEPTH_TEST);
+        GL11.glEnable(GL11.GL_BLEND);
+        GL11.glDepthMask(false);
+        RenderGlobal.drawOutlinedBoundingBox(box, color.getRed(), color.getGreen(), color.getBlue(), color.getAlpha());
+        GL11.glEnable(GL11.GL_TEXTURE_2D);
+        GL11.glEnable(GL11.GL_DEPTH_TEST);
+        GL11.glDisable(GL11.GL_BLEND);
+        GL11.glDepthMask(true);
+        GlStateManager.popMatrix();
+    }
+
+    private void clear() {
+        clearPackets(true, true);
+        globalTimer.reset();
+    }
+
+    private void clearPackets(boolean handlePackets, boolean stopRendering) {
+        Iterator<QueuedPacket> iterator = packetQueue.iterator();
+        while (iterator.hasNext()) {
+            QueuedPacket data = iterator.next();
+            if (handlePackets) receiveQueuedPacket(data.packet);
+            iterator.remove();
         }
         positions.clear();
-        if (clearTarget) {
-            target = null;
-            realPosition = zeroVec();
+        if (stopRendering) {
+            shouldRender = false;
+            ignoreWholeTick = true;
         }
-        shouldRender = false;
-        Myau.lagManager.setDelay(0);
-        cycleTimer.reset();
     }
 
-    private void updatePacketDelayCycle() {
+    private void updateDelayCooldown() {
+        boolean shouldChangeDelay = packetQueue.isEmpty();
+        if (!shouldChangeDelay) {
+            delayChanged = false;
+        }
+        if (shouldChangeDelay && !delayChanged && !shouldBacktrack()) {
+            delayForNextBacktrack = System.currentTimeMillis() + nextBacktrackDelay.getValue();
+            modernDelay = randomLatency();
+            delayChanged = true;
+        }
+    }
+
+    private void reset() {
+        target = null;
+        globalTimer.reset();
     }
 
     private void receiveQueuedPacket(Packet<?> packet) {
         if (packet == null || mc.getNetHandler() == null) return;
-        skipPackets.add(packet);
         PacketUtil.handlePacket((Packet<INetHandlerPlayClient>) packet);
     }
 
@@ -352,15 +463,11 @@ public class BackTrack extends Module {
         return RandomUtil.nextInt(low, high);
     }
 
-    private static Vec3 zeroVec() {
-        return new Vec3(0.0D, 0.0D, 0.0D);
-    }
-
     public Vec3 getTrackedPositionForDebug(EntityLivingBase entity) {
-        if (!this.isEnabled() || mode.getValue() != 0 || entity == null || target == null || realPosition == null) return null;
+        TimedPosition position = getLatestPosition();
+        if (!this.isEnabled() || mode.getValue() != 0 || entity == null || target == null || position == null) return null;
         if (entity.getEntityId() != target.getEntityId()) return null;
-        if (realPosition.xCoord == 0.0D && realPosition.yCoord == 0.0D && realPosition.zCoord == 0.0D) return null;
-        return realPosition;
+        return position.position;
     }
 
     private void attackRealTarget(EntityLivingBase entity) {
