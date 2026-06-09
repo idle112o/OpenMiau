@@ -46,14 +46,18 @@ public class OnlineConfigCommand extends Command {
 
     private void listConfigs() {
         try {
-            cache = client.list();
-            ChatUtil.sendFormatted(
-                    Myau.clientName + (cache.isEmpty() ? "No online configs found&r" : "Online configs:&r"));
-            for (OnlineConfigEntry entry : cache) {
-                sendEntry(entry);
-            }
+            List<OnlineConfigEntry> entries = client.list();
+            runOnClientThread(() -> {
+                cache = entries;
+                ChatUtil.sendFormatted(
+                        Myau.clientName + (cache.isEmpty() ? "No online configs found&r" : "Online configs:&r"));
+                for (OnlineConfigEntry entry : cache) {
+                    sendEntry(entry);
+                }
+            });
         } catch (Exception e) {
-            ChatUtil.sendFormatted(Myau.clientName + "Failed to list online configs: &c" + e.getMessage() + "&r");
+            runOnClientThread(() -> ChatUtil
+                    .sendFormatted(Myau.clientName + "Failed to list online configs: &c" + e.getMessage() + "&r"));
         }
     }
 
@@ -61,11 +65,22 @@ public class OnlineConfigCommand extends Command {
         try {
             OnlineConfigEntry entry = findEntry(input);
             if (entry == null) {
-                ChatUtil.sendFormatted(Myau.clientName + "Online config not found (&o" + input + "&r)&r");
+                runOnClientThread(
+                        () -> ChatUtil.sendFormatted(Myau.clientName + "Online config not found (&o" + input + "&r)&r"));
                 return;
             }
+            String json = client.load(entry.getId());
+            runOnClientThread(() -> applyConfig(entry, json));
+        } catch (Exception e) {
+            runOnClientThread(() -> ChatUtil
+                    .sendFormatted(Myau.clientName + "Failed to load online config: &c" + e.getMessage() + "&r"));
+        }
+    }
+
+    private void applyConfig(OnlineConfigEntry entry, String json) {
+        try {
             showMetadata(entry);
-            int applied = new OnlineConfigApplier().apply(client.load(entry.getId()));
+            int applied = new OnlineConfigApplier().apply(json);
             ChatUtil.sendFormatted(String.format("%sOnline config loaded (&a&o%s&r) &7- applied %d setting(s)&r",
                     Myau.clientName, entry.getName(), applied));
         } catch (Exception e) {
@@ -115,6 +130,10 @@ public class OnlineConfigCommand extends Command {
 
     private void async(String name, Runnable task) {
         new Thread(task, name).start();
+    }
+
+    private void runOnClientThread(Runnable task) {
+        net.minecraft.client.Minecraft.getMinecraft().addScheduledTask(task);
     }
 
     private String safe(String value) {
