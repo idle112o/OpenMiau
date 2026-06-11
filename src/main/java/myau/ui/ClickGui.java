@@ -87,6 +87,7 @@ public class ClickGui extends GuiScreen {
         renderModules.add(Myau.moduleManager.getModule(Chams.class));
         renderModules.add(Myau.moduleManager.getModule(FullBright.class));
         renderModules.add(Myau.moduleManager.getModule(FreeLook.class));
+        renderModules.add(Myau.moduleManager.getModule(MotionBlur.class));
         renderModules.add(Myau.moduleManager.getModule(Tracers.class));
         renderModules.add(Myau.moduleManager.getModule(NameTags.class));
         renderModules.add(Myau.moduleManager.getModule(Xray.class));

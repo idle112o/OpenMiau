@@ -12,12 +12,16 @@ import net.minecraft.block.material.Material;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.entity.EntityPlayerSP;
 import net.minecraft.client.renderer.EntityRenderer;
+import net.minecraft.client.renderer.GlStateManager;
+import net.minecraft.client.renderer.OpenGlHelper;
+import net.minecraft.client.shader.ShaderGroup;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.EntityLivingBase;
 import net.minecraft.item.ItemStack;
 import net.minecraft.potion.Potion;
 import net.minecraft.util.MathHelper;
 import net.minecraft.util.Vec3;
+import myau.motionblur.MotionBlurShaderHook;
 import net.minecraftforge.fml.relauncher.Side;
 import net.minecraftforge.fml.relauncher.SideOnly;
 import org.spongepowered.asm.mixin.Mixin;
@@ -31,7 +35,7 @@ import java.util.List;
 
 @SideOnly(Side.CLIENT)
 @Mixin(value = {EntityRenderer.class}, priority = 9999)
-public abstract class MixinEntityRenderer {
+public abstract class MixinEntityRenderer implements MotionBlurShaderHook {
     @Unique
     private Box<Integer> slot = null;
     @Unique
@@ -44,6 +48,20 @@ public abstract class MixinEntityRenderer {
     private float thirdPersonDistance;
     @Shadow
     private float thirdPersonDistanceTemp;
+    @Shadow
+    private ShaderGroup theShaderGroup;
+    @Unique
+    private ShaderGroup myau$motionBlurShader;
+    @Unique
+    private boolean myau$freeLookRestoreRotation;
+    @Unique
+    private float myau$freeLookYaw;
+    @Unique
+    private float myau$freeLookPitch;
+    @Unique
+    private float myau$freeLookPrevYaw;
+    @Unique
+    private float myau$freeLookPrevPitch;
 
     @Inject(
             method = {"updateCameraAndRender"},
@@ -86,6 +104,62 @@ public abstract class MixinEntityRenderer {
             ((IAccessorEntityPlayer) this.mc.thePlayer).setItemInUseCount(this.useCount.value);
             this.useCount = null;
         }
+    }
+
+    @Inject(
+            method = {"isShaderActive"},
+            at = {@At("HEAD")},
+            cancellable = true
+    )
+    private void myau$isMotionBlurShaderActive(org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable<Boolean> callbackInfo) {
+        if (this.myau$motionBlurShader != null && OpenGlHelper.shadersSupported) {
+            callbackInfo.setReturnValue(true);
+        }
+    }
+
+    @Inject(
+            method = {"getShaderGroup"},
+            at = {@At("HEAD")},
+            cancellable = true
+    )
+    private void myau$getMotionBlurShaderGroup(org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable<ShaderGroup> callbackInfo) {
+        if (this.myau$motionBlurShader != null && OpenGlHelper.shadersSupported && this.theShaderGroup == null) {
+            callbackInfo.setReturnValue(this.myau$motionBlurShader);
+        }
+    }
+
+    @Inject(
+            method = {"updateShaderGroupSize"},
+            at = {@At(value = "INVOKE", target = "Lnet/minecraft/client/renderer/RenderGlobal;createBindEntityOutlineFbs(II)V")}
+    )
+    private void myau$updateMotionBlurShaderSize(int width, int height, CallbackInfo callbackInfo) {
+        if (this.myau$motionBlurShader != null) {
+            this.myau$motionBlurShader.createBindFramebuffers(width, height);
+        }
+    }
+
+    @Inject(
+            method = {"updateCameraAndRender"},
+            at = {@At(value = "INVOKE", target = "Lnet/minecraft/client/renderer/RenderGlobal;renderEntityOutlineFramebuffer()V", shift = At.Shift.AFTER)}
+    )
+    private void myau$renderMotionBlurShader(float partialTicks, long nanoTime, CallbackInfo callbackInfo) {
+        if (this.myau$motionBlurShader != null) {
+            GlStateManager.matrixMode(5890);
+            GlStateManager.pushMatrix();
+            GlStateManager.loadIdentity();
+            this.myau$motionBlurShader.loadShaderGroup(partialTicks);
+            GlStateManager.popMatrix();
+        }
+    }
+
+    @Override
+    public ShaderGroup myau$getMotionBlurShader() {
+        return this.myau$motionBlurShader;
+    }
+
+    @Override
+    public void myau$setMotionBlurShader(ShaderGroup shaderGroup) {
+        this.myau$motionBlurShader = shaderGroup;
     }
 
     @Inject(
@@ -220,12 +294,32 @@ public abstract class MixinEntityRenderer {
         FreeLook freeLook = (FreeLook) Myau.moduleManager.modules.get(FreeLook.class);
         if (freeLook != null && freeLook.isFreeLooking()) {
             EntityPlayerSP player = this.mc.thePlayer;
+            this.myau$freeLookYaw = player.rotationYaw;
+            this.myau$freeLookPitch = player.rotationPitch;
+            this.myau$freeLookPrevYaw = player.prevRotationYaw;
+            this.myau$freeLookPrevPitch = player.prevRotationPitch;
+            this.myau$freeLookRestoreRotation = true;
             player.prevRotationYaw = player.rotationYaw = freeLook.getCameraYaw();
             player.prevRotationPitch = player.rotationPitch = MathHelper.clamp_float(freeLook.getCameraPitch(), -90.0F, 90.0F);
             if (this.mc.gameSettings.thirdPersonView == 0) {
                 this.mc.gameSettings.thirdPersonView = 1;
             }
             this.thirdPersonDistanceTemp = this.thirdPersonDistance;
+        }
+    }
+
+    @Inject(
+            method = {"orientCamera"},
+            at = {@At("RETURN")}
+    )
+    private void restoreFreeLook(float partialTicks, CallbackInfo callbackInfo) {
+        if (this.myau$freeLookRestoreRotation && this.mc.thePlayer != null) {
+            EntityPlayerSP player = this.mc.thePlayer;
+            player.rotationYaw = this.myau$freeLookYaw;
+            player.rotationPitch = this.myau$freeLookPitch;
+            player.prevRotationYaw = this.myau$freeLookPrevYaw;
+            player.prevRotationPitch = this.myau$freeLookPrevPitch;
+            this.myau$freeLookRestoreRotation = false;
         }
     }
 

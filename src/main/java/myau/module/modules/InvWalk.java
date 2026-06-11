@@ -16,6 +16,7 @@ import myau.property.properties.ModeProperty;
 import myau.util.KeyBindUtil;
 import myau.util.PacketUtil;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.GuiChat;
 import net.minecraft.client.gui.inventory.GuiContainer;
 import net.minecraft.client.gui.inventory.GuiContainerCreative;
 import net.minecraft.client.gui.inventory.GuiInventory;
@@ -113,7 +114,7 @@ public class InvWalk extends Module {
     }
 
     private boolean canGuiWalk() {
-        return mc.currentScreen != null && !(mc.currentScreen instanceof GuiContainer) && this.guiEnabled.getValue();
+        return mc.currentScreen != null && !(mc.currentScreen instanceof GuiChat) && !(mc.currentScreen instanceof GuiContainer) && this.guiEnabled.getValue();
     }
 
     private boolean shouldRefreshKeysPostTick() {
