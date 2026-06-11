@@ -7,12 +7,12 @@ import myau.events.TickEvent;
 import myau.module.Module;
 import myau.property.properties.BooleanProperty;
 import myau.property.properties.IntProperty;
+import myau.util.ItemUtil;
 import myau.util.KeyBindUtil;
 import myau.util.PacketUtil;
 import myau.util.TeamUtil;
 import net.minecraft.block.Block;
 import net.minecraft.client.Minecraft;
-import net.minecraft.item.ItemStack;
 import net.minecraft.network.play.client.C09PacketHeldItemChange;
 import net.minecraft.util.BlockPos;
 import net.minecraft.util.MovingObjectPosition;
@@ -34,7 +34,7 @@ public class AutoTool extends Module {
     public final IntProperty hoverDelay = new IntProperty("hover-delay", 0, 0, 1000);
     public final BooleanProperty switchBack = new BooleanProperty("switch-back", true);
     public final BooleanProperty overrideSwitchBack = new BooleanProperty("override-switch-back", true);
-    public final BooleanProperty spoofItem = new BooleanProperty("spoof-item", true);
+    public final BooleanProperty spoofItem = new BooleanProperty("spoof-item", false);
     public final BooleanProperty sneakOnly = new BooleanProperty("sneak-only", false);
     public final BooleanProperty requireLeftMouse = new BooleanProperty("require-left-mouse", true);
 
@@ -122,18 +122,7 @@ public class AutoTool extends Module {
 
     private int findBestHotbarTool(Block block) {
         int currentSlot = mc.thePlayer.inventory.currentItem;
-        ItemStack currentStack = mc.thePlayer.inventory.getStackInSlot(currentSlot);
-        float bestStrength = currentStack == null ? 1.0F : currentStack.getStrVsBlock(block);
-        int bestSlot = currentSlot;
-        for (int slot = 0; slot < 9; slot++) {
-            ItemStack stack = mc.thePlayer.inventory.getStackInSlot(slot);
-            if (stack == null) continue;
-            float strength = stack.getStrVsBlock(block);
-            if (strength > bestStrength) {
-                bestStrength = strength;
-                bestSlot = slot;
-            }
-        }
+        int bestSlot = ItemUtil.findInventorySlot(currentSlot, block);
         return bestSlot == currentSlot ? -1 : bestSlot;
     }
 
@@ -141,17 +130,22 @@ public class AutoTool extends Module {
         if (this.spoofItem.getValue()) {
             this.selectToolSilently(slot);
         } else if (slot != mc.thePlayer.inventory.currentItem) {
-            mc.thePlayer.inventory.currentItem = slot;
+            this.switchToSlot(slot);
         }
         this.swapped = true;
     }
 
     private void selectToolSilently(int slot) {
         if (this.serverSlot == -1) this.serverSlot = mc.thePlayer.inventory.currentItem;
-        if (this.spoofedToolSlot != slot) {
-            PacketUtil.sendPacket(new C09PacketHeldItemChange(slot));
+        if (this.spoofedToolSlot != slot || mc.thePlayer.inventory.currentItem != slot) {
+            this.switchToSlot(slot);
             this.spoofedToolSlot = slot;
         }
+    }
+
+    private void switchToSlot(int slot) {
+        mc.thePlayer.inventory.currentItem = slot;
+        PacketUtil.sendPacket(new C09PacketHeldItemChange(slot));
     }
 
     private void resetState(boolean resetTimers, boolean switchBackToPrevious) {
@@ -159,7 +153,7 @@ public class AutoTool extends Module {
             if (this.spoofItem.getValue()) {
                 this.resetSilentSlot(true);
             } else if (this.previousSlot != -1 && this.previousSlot != mc.thePlayer.inventory.currentItem) {
-                mc.thePlayer.inventory.currentItem = this.previousSlot;
+                this.switchToSlot(this.previousSlot);
             }
         } else {
             this.resetSilentSlot(false);
@@ -176,7 +170,7 @@ public class AutoTool extends Module {
 
     private void resetSilentSlot(boolean sendSwitchBack) {
         if (this.serverSlot != -1 && sendSwitchBack) {
-            PacketUtil.sendPacket(new C09PacketHeldItemChange(this.serverSlot));
+            this.switchToSlot(this.serverSlot);
         }
         this.serverSlot = -1;
         this.spoofedToolSlot = -1;
