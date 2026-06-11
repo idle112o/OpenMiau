@@ -41,6 +41,7 @@ public class LagRange extends Module {
     private Vec3 currentPosition = null;
     public final IntProperty delay = new IntProperty("delay", 150, 0, 1000);
     public final FloatProperty range = new FloatProperty("range", 10.0F, 3.0F, 100.0F);
+    public final BooleanProperty aggressive = new BooleanProperty("aggressive", false);
     public final BooleanProperty weaponsOnly = new BooleanProperty("weapons-only", true);
     public final BooleanProperty allowTools = new BooleanProperty("allow-tools", false, this.weaponsOnly::getValue);
     public final BooleanProperty botCheck = new BooleanProperty("bot-check", true);
@@ -115,7 +116,8 @@ public class LagRange extends Module {
                                 if (!(distance > (double) this.range.getValue())) {
                                     double targetDist = RotationUtil.distanceToBox(player, targetEyePosition);
                                     double eyeDist = RotationUtil.distanceToBox(player, eyePosition);
-                                    if (distance < targetDist || distance < eyeDist) {
+                                    boolean shouldLag = this.aggressive.getValue() || distance < targetDist || distance < eyeDist;
+                                    if (shouldLag) {
                                         if (this.tickIndex < 0) {
                                             this.tickIndex = 0;
                                             for (this.delayCounter = this.delayCounter + (long) this.delay.getValue();

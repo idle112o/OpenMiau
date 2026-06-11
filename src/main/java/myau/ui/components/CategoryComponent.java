@@ -33,6 +33,16 @@ public class CategoryComponent {
     private int height = 0;
 
     public CategoryComponent(String category, List<Module> modules) {
+        this(category);
+        int tY = this.bh + 3;
+        for (Module mod : modules) {
+            ModuleComponent b = new ModuleComponent(mod, this, tY);
+            this.modulesInCategory.add(b);
+            tY += 16;
+        }
+    }
+
+    public CategoryComponent(String category) {
         this.categoryName = category;
         this.width = 92;
         this.x = 5;
@@ -41,14 +51,16 @@ public class CategoryComponent {
         this.xx = 0;
         this.categoryOpened = false;
         this.dragging = false;
-        int tY = this.bh + 3;
         this.marginX = 80;
         this.marginY = 4.5;
-        for (Module mod : modules) {
-            ModuleComponent b = new ModuleComponent(mod, this, tY);
-            this.modulesInCategory.add(b);
-            tY += 16;
-        }
+    }
+
+    public void setComponents(List<Component> components) {
+        this.modulesInCategory.clear();
+        this.modulesInCategory.addAll(components);
+        this.scroll = 0;
+        this.animScroll = 0;
+        this.update();
     }
 
     public ArrayList<Component> getModules() {

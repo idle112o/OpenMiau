@@ -6,9 +6,14 @@ import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import myau.ClientInfo;
 import myau.Myau;
+import myau.config.online.OnlineConfigApplier;
+import myau.config.online.OnlineConfigClient;
+import myau.config.online.OnlineConfigEntry;
 import myau.module.Module;
 import myau.module.modules.*;
 import myau.ui.components.CategoryComponent;
+import myau.ui.components.OnlineConfigComponent;
+import myau.util.ChatUtil;
 import net.minecraft.client.gui.GuiScreen;
 import org.lwjgl.input.Mouse;
 
@@ -19,14 +24,23 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.util.*;
 import java.util.List;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
 public class ClickGui extends GuiScreen {
-    private static final Logger LOGGER = Logger.getLogger(ClickGui.class.getName());
+    private static final Logger CLICK_GUI_LOGGER = Logger.getLogger(ClickGui.class.getName());
+    private static final ExecutorService ONLINE_CONFIG_EXECUTOR = Executors.newSingleThreadExecutor(runnable -> {
+        Thread thread = new Thread(runnable, "OpenMiau OnlConfigs");
+        thread.setDaemon(true);
+        return thread;
+    });
     private static ClickGui instance;
     private final File configFile = new File("./config/Myau/", "clickgui.txt");
     private final ArrayList<CategoryComponent> categoryList;
+    private final OnlineConfigClient onlineConfigClient = new OnlineConfigClient();
+    private CategoryComponent onlineConfigCategory;
 
     public ClickGui() {
         instance = this;
@@ -49,7 +63,6 @@ public class ClickGui extends GuiScreen {
         combatModules.add(Myau.moduleManager.getModule(HitSelect.class));
         combatModules.add(Myau.moduleManager.getModule(Hitflick.class));
         combatModules.add(Myau.moduleManager.getModule(ProjectileAimBot.class));
-        combatModules.add(Myau.moduleManager.getModule(TickBase.class));
         combatModules.add(Myau.moduleManager.getModule(Displace.class));
         combatModules.add(Myau.moduleManager.getModule(KnockbackDelay.class));
 
@@ -137,6 +150,7 @@ public class ClickGui extends GuiScreen {
         latencyModules.add(Myau.moduleManager.getModule(BackTrack.class));
         latencyModules.add(Myau.moduleManager.getModule(LagRange.class));
         latencyModules.add(Myau.moduleManager.getModule(FakeLag.class));
+        latencyModules.add(Myau.moduleManager.getModule(TickBase.class));
 
         Comparator<Module> comparator = Comparator.comparing(m -> m.getName().toLowerCase());
         combatModules.sort(comparator);
@@ -191,6 +205,12 @@ public class ClickGui extends GuiScreen {
         CategoryComponent latency = new CategoryComponent("Latence", latencyModules);
         latency.setY(topOffset);
         categoryList.add(latency);
+        topOffset += 20;
+
+        this.onlineConfigCategory = new CategoryComponent("OnlConfigs");
+        this.onlineConfigCategory.setY(topOffset);
+        this.setOnlineConfigStatus("Loading...", "refreshing list", null);
+        categoryList.add(this.onlineConfigCategory);
 
         loadPositions();
     }
@@ -201,6 +221,7 @@ public class ClickGui extends GuiScreen {
 
     public void initGui() {
         super.initGui();
+        this.refreshOnlineConfigs();
     }
 
     public void drawScreen(int x, int y, float p) {
@@ -257,7 +278,7 @@ public class ClickGui extends GuiScreen {
                 } while (!category.isOpened());
             } while (category.getModules().isEmpty());
 
-            for (Component c : category.getModules()) {
+            for (Component c : new ArrayList<>(category.getModules())) {
                 c.mouseDown(x, y, mouseButton);
             }
         }
@@ -288,7 +309,7 @@ public class ClickGui extends GuiScreen {
                 } while (!categoryComponent.isOpened());
             } while (categoryComponent.getModules().isEmpty());
 
-            for (Component component : categoryComponent.getModules()) {
+            for (Component component : new ArrayList<>(categoryComponent.getModules())) {
                 component.mouseReleased(x, y, mouseButton);
             }
         }
@@ -312,7 +333,7 @@ public class ClickGui extends GuiScreen {
                     } while (!cat.isOpened());
                 } while (cat.getModules().isEmpty());
 
-                for (Component component : cat.getModules()) {
+                for (Component component : new ArrayList<>(cat.getModules())) {
                     component.keyTyped(typedChar, key);
                 }
             }
@@ -325,6 +346,75 @@ public class ClickGui extends GuiScreen {
 
     public boolean doesGuiPauseGame() {
         return false;
+    }
+
+    private void refreshOnlineConfigs() {
+        this.setOnlineConfigStatus("Loading...", "fetching configs", null);
+        ONLINE_CONFIG_EXECUTOR.execute(() -> {
+            try {
+                List<OnlineConfigEntry> entries = Collections
+                        .unmodifiableList(new ArrayList<>(this.onlineConfigClient.list()));
+                mc.addScheduledTask(() -> this.setOnlineConfigEntries(entries));
+            } catch (Exception e) {
+                mc.addScheduledTask(() -> this.setOnlineConfigStatus("Fetch failed", e.getMessage(), null));
+            }
+        });
+    }
+
+    private void setOnlineConfigEntries(List<OnlineConfigEntry> entries) {
+        if (entries.isEmpty()) {
+            this.setOnlineConfigStatus("No configs", "online list is empty", null);
+            return;
+        }
+        ArrayList<Component> components = new ArrayList<>();
+        int offset = 16;
+        for (OnlineConfigEntry entry : entries) {
+            String subtitle = "by " + entry.getAuthor() + " | " + safe(entry.setting_type);
+            components.add(new OnlineConfigComponent(this.onlineConfigCategory, offset, entry.getName(), subtitle,
+                    () -> this.loadOnlineConfig(entry)));
+            offset += 24;
+        }
+        this.onlineConfigCategory.setComponents(components);
+    }
+
+    private void setOnlineConfigStatus(String title, String subtitle, Runnable action) {
+        if (this.onlineConfigCategory == null)
+            return;
+        ArrayList<Component> components = new ArrayList<>();
+        components.add(new OnlineConfigComponent(this.onlineConfigCategory, 16, title, subtitle, action));
+        this.onlineConfigCategory.setComponents(components);
+    }
+
+    private void loadOnlineConfig(OnlineConfigEntry entry) {
+        this.setOnlineConfigStatus("Loading " + entry.getName(), "please wait", null);
+        ONLINE_CONFIG_EXECUTOR.execute(() -> {
+            try {
+                String json = this.onlineConfigClient.load(entry.getId());
+                mc.addScheduledTask(() -> {
+                    try {
+                        int applied = new OnlineConfigApplier().apply(json);
+                        ChatUtil.sendFormatted(
+                                String.format("%sOnline config loaded (&a&o%s&r) &7- applied %d setting(s)&r",
+                                        Myau.clientName, entry.getName(), applied));
+                        this.refreshOnlineConfigs();
+                    } catch (Exception e) {
+                        ChatUtil.sendFormatted(
+                                Myau.clientName + "Failed to load online config: &c" + e.getMessage() + "&r");
+                        this.refreshOnlineConfigs();
+                    }
+                });
+            } catch (Exception e) {
+                mc.addScheduledTask(() -> {
+                    ChatUtil.sendFormatted(
+                            Myau.clientName + "Failed to load online config: &c" + e.getMessage() + "&r");
+                    this.refreshOnlineConfigs();
+                });
+            }
+        });
+    }
+
+    private static String safe(String value) {
+        return value == null || value.trim().isEmpty() ? "unknown" : value;
     }
 
     private void savePositions() {
@@ -345,7 +435,7 @@ public class ClickGui extends GuiScreen {
                 new GsonBuilder().setPrettyPrinting().create().toJson(json, writer);
             }
         } catch (IOException e) {
-            LOGGER.log(Level.WARNING, "Failed to save ClickGui positions", e);
+            CLICK_GUI_LOGGER.log(Level.WARNING, "Failed to save ClickGui positions", e);
         }
     }
 
@@ -373,7 +463,7 @@ public class ClickGui extends GuiScreen {
                 }
             }
         } catch (Exception e) {
-            LOGGER.log(Level.WARNING, "Failed to load ClickGui positions", e);
+            CLICK_GUI_LOGGER.log(Level.WARNING, "Failed to load ClickGui positions", e);
         }
     }
 }

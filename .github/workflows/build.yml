@@ -34,7 +34,7 @@ jobs:
       - name: Upload jar artifact
         uses: actions/upload-artifact@v4
         with:
-          name: OpenMyau-Jar
+          name: OpenMiau-Jar
           path: |
             build/libs/*.jar
             !build/libs/*without-deps*.jar

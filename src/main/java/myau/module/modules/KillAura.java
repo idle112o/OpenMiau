@@ -84,6 +84,7 @@ public class KillAura extends Module {
     public final BooleanProperty throughWalls;
     public final BooleanProperty requirePress;
     public final BooleanProperty allowMining;
+    public final BooleanProperty whileScaffold;
     public final BooleanProperty weaponsOnly;
     public final BooleanProperty allowTools;
     public final BooleanProperty inventoryCheck;
@@ -258,7 +259,7 @@ public class KillAura extends Module {
                     AutoBlockIn autoBlockIn = (AutoBlockIn) Myau.moduleManager.modules.get(AutoBlockIn.class);
                     if (bedNuker.isEnabled() && bedNuker.isReady()) {
                         return false;
-                    } else if (Myau.moduleManager.modules.get(Scaffold.class).isEnabled()) {
+                    } else if (!this.whileScaffold.getValue() && Myau.moduleManager.modules.get(Scaffold.class).isEnabled()) {
                         return false;
                     } else if (autoBlockIn.isEnabled()) {
                         return false;
@@ -418,6 +419,7 @@ public class KillAura extends Module {
         this.throughWalls = new BooleanProperty("through-walls", true);
         this.requirePress = new BooleanProperty("require-press", false);
         this.allowMining = new BooleanProperty("allow-mining", true);
+        this.whileScaffold = new BooleanProperty("while-scaffold", false);
         this.weaponsOnly = new BooleanProperty("weapons-only", true);
         this.allowTools = new BooleanProperty("allow-tools", false, this.weaponsOnly::getValue);
         this.inventoryCheck = new BooleanProperty("inventory-check", true);
@@ -455,7 +457,7 @@ public class KillAura extends Module {
 
     public boolean isAttackAllowed() {
         Scaffold scaffold = (Scaffold) Myau.moduleManager.modules.get(Scaffold.class);
-        if (scaffold.isEnabled()) {
+        if (!this.whileScaffold.getValue() && scaffold.isEnabled()) {
             return false;
         } else if (!this.weaponsOnly.getValue()
                 || ItemUtil.hasRawUnbreakingEnchant()
