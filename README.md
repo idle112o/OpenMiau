@@ -1,30 +1,17 @@
-# Open Myau
+# OpenMiau
 
 ![Preview](/images/image2.png)
 
-[Myau Client](https://myau.sell.app/), for those who can’t afford it.
+**OpenMiau** is a cleaned-up project based on the **OpenMyau** base, created to continue improving, refining, and expanding the client.
 
-Based on **`Myau-250910`**, with added features and improvements not found in the original, focused on expanding and refining the original Myau client.
 
-[![Discord](https://invidget.switchblade.xyz/yjSaTufmqU)](https://discord.gg/yjSaTufmqU)
+[![Discord](https://invidget.switchblade.xyz/4EYDaMNBBx)](https://discord.gg/4EYDaMNBBx)
 
-## Changes
-
-* Added Click GUI (ported from Raven B3 by blowsy)
-* Fixed bugs
-
-If you encounter an issue or have a feature suggestion, please [create an issue](https://github.com/60124808866/OpenMyau/issues).
-
-## Building
-
-```bash
-./gradlew build
-```
 
 ## Contributing
 
-You can open an issue or submit a pull request to help improve Open Myau.
+If you want to contribute to OpenMiau, feel free to open an issue or submit a pull request in this repository.
 
-If you’re interested in co-developing or have questions, feel free to reach out:
+You can also join the Discord server to chat, report bugs, or suggest features:
 
-* Discord: `60124808866_88040`
+- Discord: vnhao294
