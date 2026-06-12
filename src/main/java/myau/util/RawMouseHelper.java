@@ -1,6 +1,6 @@
 package myau.util;
 
-import myau.module.modules.MouseRawInput;
+import myau.module.modules.misc.MouseRawInput;
 import net.minecraft.util.MouseHelper;
 
 public class RawMouseHelper extends MouseHelper {

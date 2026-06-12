@@ -2,7 +2,7 @@ package myau.management;
 
 import myau.Myau;
 import myau.module.Module;
-import myau.module.modules.RPC;
+import myau.module.modules.misc.RPC;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ServerData;
 

@@ -1,7 +1,7 @@
 package myau.module;
 
 import myau.Myau;
-import myau.module.modules.HUD;
+import myau.module.modules.render.HUD;
 import myau.util.KeyBindUtil;
 
 public abstract class Module {

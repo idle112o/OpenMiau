@@ -1,5 +1,6 @@
 package myau.module.modules;
 
+import myau.module.modules.misc.AntiBot;
 import myau.module.Module;
 import myau.property.properties.BooleanProperty;
 import myau.util.TeamUtil;
